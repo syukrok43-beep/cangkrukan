@@ -1,0 +1,22 @@
+backend:
+  name: github
+  repo: sukro/cangkrukan
+  branch: main
+
+media_folder: "public/images/uploads"
+public_folder: "/images/uploads"
+
+collections:
+  - name: "berita"
+    label: "Artikel Cangkrukan"
+    folder: "src/content/berita"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    fields:
+      - { label: "Judul", name: "title", widget: "string" }
+      - { label: "Ringkasan Singkat", name: "description", widget: "text" }
+      - { label: "Tanggal", name: "date", widget: "datetime" }
+      - { label: "Penulis", name: "author", widget: "string", default: "Redaksi Cangkrukan" }
+      - { label: "Kategori", name: "category", widget: "select", options: ["Opini", "Esai", "Berita Kampus", "Teknologi"] }
+      - { label: "Gambar Sampul (Opsional)", name: "image", widget: "image", required: false }
+      - { label: "Isi Artikel", name: "body", widget: "markdown" }
