@@ -8,8 +8,10 @@ const beritaCollection = defineCollection({
     description: z.string(),
     date: z.coerce.date(),
     author: z.string().default('Redaksi Cangkrukan'),
+    daerah: z.string().default('Nasional'),
+    category: z.enum(['Sejarah', 'Budaya', 'Opini', 'Literasi', 'Liputan Nasional']),
     image: z.string().optional(),
-    category: z.enum(['Opini', 'Esai', 'Berita Kampus', 'Teknologi']),
+    referensi: z.string().optional(),
   }),
 });
 

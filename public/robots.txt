@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://cangkrukan.pages.dev/sitemap-index.xml
+Sitemap: https://cangkrukan.pages.dev/news-sitemap.xml

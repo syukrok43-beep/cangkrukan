@@ -1,16 +1,89 @@
 ---
----
+import { getCollection } from 'astro:content';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
+const artikel = (await getCollection('berita')).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+
+const hero = artikel[0];
+const sidebar = artikel.slice(1);
+const gambarDefault = "https://picsum.photos/seed/cangkrukan-default/1200/630";
+
+const formatTanggal = (date: Date) => {
+  return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
+};
+
+const title = "Cangkrukan | Suara Mahasiswa, Sejarah, dan Budaya";
+const description = "Ruang literasi digital mahasiswa Indonesia. Mengangkat narasi sejarah, budaya, opini, dan literasi dari seluruh penjuru Nusantara.";
+const image = "https://picsum.photos/seed/cangkrukan-og/1200/630";
+const url = "https://cangkrukan.id/";
+---
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={url} />
+  
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={url} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content={image} />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={image} />
+  
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+</head>
+<body>
+  <Header />
+  <main class="container">
+    <div class="main-grid">
+      
+      <div>
+        {hero && (
+          <a href={`/berita/${hero.id}`}>
+            <article class="hero-card">
+              <img src={hero.data.image || gambarDefault} alt={hero.data.title} />
+              <div class="hero-content">
+                <span class="hero-cat">{hero.data.category} • {hero.data.daerah}</span>
+                <h1 class="hero-title">{hero.data.title}</h1>
+                <p class="hero-desc">{hero.data.description}</p>
+              </div>
+            </article>
+          </a>
+        )}
+      </div>
+
+      <aside>
+        <div class="sidebar-header">
+          <h3 class="sidebar-title">Terbaru di Cangkrukan</h3>
+          <span class="sidebar-badge">SUARA MAHASISWA</span>
+        </div>
+        <div class="sidebar-list">
+          {sidebar.map((post) => (
+            <a href={`/berita/${post.id}`} class="sidebar-card">
+              <img src={post.data.image || gambarDefault} alt={post.data.title} />
+              <div class="sidebar-info">
+                <span class="sidebar-cat">{post.data.category} • {post.data.daerah}</span>
+                <h4 class="sidebar-title-small">{post.data.title}</h4>
+                <span class="sidebar-meta">{post.data.author} &middot; {formatTanggal(post.data.date)}</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </aside>
+
+    </div>
+  </main>
+  <Footer />
+</body>
 </html>

@@ -1,0 +1,52 @@
+---
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+
+const title = "Tentang Kami | Cangkrukan";
+const description = "Cangkrukan adalah ruang literasi digital mahasiswa Indonesia. Kami mengangkat narasi sejarah, budaya, opini, dan literasi dari seluruh penjuru Nusantara.";
+const image = "https://picsum.photos/seed/cangkrukan-og/1200/630";
+const url = "https://cangkrukan.id/tentang";
+---
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={url} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={url} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content={image} />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={image} />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+</head>
+<body>
+  <Header />
+  <main class="container">
+    <div class="article-container">
+      <h1 style="font-size: 32px; margin-bottom: 20px; color: var(--primary-dark);">Tentang Cangkrukan</h1>
+      <div class="article-content">
+        <p>Cangkrukan adalah ruang literasi digital yang didedikasikan untuk mahasiswa, akademisi, dan siapa saja yang peduli pada sejarah, budaya, dan perkembangan intelektual anak muda Indonesia.</p>
+        <p>Nama "Cangkrukan" diambil dari bahasa Jawa yang berarti berkumpul sembari mengobrol. Kami percaya bahwa diskusi yang sehat lahir dari tulisan yang jernih dan mendalam.</p>
+        <h3>Visi Kami</h3>
+        <p>Menjadi arsip sejarah dan budaya Nusantara yang hidup, ditulis langsung oleh generasi muda dari berbagai pelosok daerah dengan standar kredibilitas yang tinggi.</p>
+        <h3>Fokus Kami</h3>
+        <ul style="list-style-type: disc; padding-left: 20px; margin-bottom: 20px; line-height: 1.8;">
+          <li><strong>Sejarah:</strong> Mengupas peristiwa masa lalu dengan sumber referensi yang kredibel.</li>
+          <li><strong>Budaya:</strong> Mengangkat tradisi, seni, dan kearifan lokal yang relevan dengan masa kini.</li>
+          <li><strong>Opini & Literasi:</strong> Menyuarakan gagasan kritis mahasiswa terhadap isu sosial dan pendidikan.</li>
+          <li><strong>Liputan Nasional:</strong> Mengurasi dan mengemas ulang berita penting dengan sudut pandang yang lebih personal.</li>
+        </ul>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</body>
+</html>

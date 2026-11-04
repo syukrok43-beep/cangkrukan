@@ -1,0 +1,909 @@
+---
+import { getCollection, render } from 'astro:content';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/global.css';
+
+export async function getStaticPaths() {
+  const artikel = await getCollection('berita');
+  const sorted = [...artikel].sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+  return sorted.map((post) => {
+    const others = sorted.filter((p) => p.id !== post.id);
+    
+    // Filter Artikel Terkait
+    const sameCategory = others.filter((p) => p.data.category === post.data.category);
+    const sameDaerah = others.filter((p) => p.data.daerah === post.data.daerah && p.data.category !== post.data.category);
+    const latest = others.filter((p) => p.data.category !== post.data.category && p.data.daerah !== post.data.daerah);
+
+    const seen = new Set();
+    const relatedPosts = [];
+    for (const p of [...sameCategory, ...sameDaerah, ...latest]) {
+      if (relatedPosts.length >= 3) break;
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      relatedPosts.push(p);
+    }
+
+    // Navigasi Next/Prev
+    const prevPost = sorted.find((p) => p.data.date.valueOf() < post.data.date.valueOf()) || null;
+    const nextPost = [...sorted].reverse().find((p) => p.data.date.valueOf() > post.data.date.valueOf()) || null;
+
+    // Logika Baca Juga (Tengah Artikel)
+    const bacaJuga =
+      sameCategory.find((p) => p.id !== post.id) ||
+      sameDaerah.find((p) => p.id !== post.id) ||
+      latest.find((p) => p.id !== post.id) ||
+      null;
+
+    // Sidebar: Ambil 5 artikel terbaru (selain artikel yang sedang dibaca)
+    const sidebarPosts = others.slice(0, 5);
+
+    return {
+      params: { slug: post.id },
+      props: { post, relatedPosts, prevPost, nextPost, bacaJuga, sidebarPosts },
+    };
+  });
+}
+
+const { post, relatedPosts, prevPost, nextPost, bacaJuga, sidebarPosts } = Astro.props;
+const { Content } = await render(post);
+
+const formatTanggal = (date: Date) => new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
+const formatTanggalPendek = (date: Date) => new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+const formatTanggalISO = (date: Date) => date.toISOString();
+const gambarDefault = 'https://picsum.photos/seed/cangkrukan-default/1200/630';
+
+const title = `${post.data.title} | Cangkrukan`;
+const description = post.data.description;
+const image = post.data.image || gambarDefault;
+const url = `https://cangkrukan.id/berita/${post.id}`;
+const authorSlug = post.data.author.toLowerCase().replace(/\s+/g, '-');
+const categorySlug = post.data.category.toLowerCase().replace(/\s+/g, '-');
+const daerahSlug = post.data.daerah.toLowerCase().replace(/\s+/g, '-');
+
+// Hitung Waktu Baca
+const wordCount = (post.body || '').trim().split(/\s+/).length;
+const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+
+// Schema JSON-LD SEO
+const schemaData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'NewsArticle',
+      '@id': `${url}#article`,
+      mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+      headline: post.data.title.substring(0, 110),
+      description: description,
+      image: { '@type': 'ImageObject', url: image, width: 1200, height: 630 },
+      datePublished: formatTanggalISO(post.data.date),
+      dateModified: formatTanggalISO(post.data.date),
+      wordCount: wordCount,
+      timeRequired: `PT${readingTime}M`,
+      inLanguage: 'id-ID',
+      isAccessibleForFree: true,
+      author: { '@type': 'Person', name: post.data.author, url: `https://cangkrukan.id/penulis/${authorSlug}` },
+      publisher: { '@type': 'Organization', name: 'Cangkrukan', url: 'https://cangkrukan.id', logo: { '@type': 'ImageObject', url: 'https://cangkrukan.id/logo.png', width: 600, height: 60 } },
+      articleSection: post.data.category,
+      keywords: [post.data.category, post.data.daerah, post.data.author].join(', '),
+    },
+    {
+      '@type': 'BreadcrumbList',
+      '@id': `${url}#breadcrumb`,
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Beranda', item: 'https://cangkrukan.id' },
+        { '@type': 'ListItem', position: 2, name: post.data.category, item: `https://cangkrukan.id/${categorySlug}` },
+        { '@type': 'ListItem', position: 3, name: post.data.title, item: url },
+      ],
+    },
+    {
+      '@type': 'Person',
+      '@id': `https://cangkrukan.id/penulis/${authorSlug}#person`,
+      name: post.data.author,
+      url: `https://cangkrukan.id/penulis/${authorSlug}`,
+      description: `Kontributor Cangkrukan yang menulis tentang sejarah, budaya, dan literasi dari daerah ${post.data.daerah}.`,
+    },
+    {
+      '@type': 'Organization',
+      '@id': 'https://cangkrukan.id#organization',
+      name: 'Cangkrukan',
+      url: 'https://cangkrukan.id',
+      logo: { '@type': 'ImageObject', url: 'https://cangkrukan.id/logo.png', width: 600, height: 60 },
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://cangkrukan.id#website',
+      url: 'https://cangkrukan.id',
+      name: 'Cangkrukan',
+      inLanguage: 'id-ID',
+      publisher: { '@id': 'https://cangkrukan.id#organization' },
+    },
+  ],
+};
+---
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={url} />
+  
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="author" content={post.data.author} />
+  <meta name="keywords" content={`${post.data.category}, ${post.data.daerah}, ${post.data.author}, cangkrukan, berita daerah`} />
+  <meta name="theme-color" content="#1E3F20" />
+  
+  <meta property="og:locale" content="id_ID" />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content={url} />
+  <meta property="og:site_name" content="Cangkrukan" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content={image} />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content={`Ilustrasi artikel: ${post.data.title}`} />
+  <meta property="article:published_time" content={formatTanggalISO(post.data.date)} />
+  <meta property="article:modified_time" content={formatTanggalISO(post.data.date)} />
+  <meta property="article:section" content={post.data.category} />
+  <meta property="article:author" content={post.data.author} />
+  <meta property="article:tag" content={post.data.category} />
+  <meta property="article:tag" content={post.data.daerah} />
+  
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={image} />
+  <meta name="twitter:image:alt" content={`Ilustrasi artikel: ${post.data.title}`} />
+  <meta name="twitter:label1" content="Ditulis oleh" />
+  <meta name="twitter:data1" content={post.data.author} />
+  <meta name="twitter:label2" content="Waktu baca" />
+  <meta name="twitter:data2" content={`${readingTime} menit`} />
+  
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://picsum.photos" />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+  <link rel="dns-prefetch" href="https://picsum.photos" />
+  
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  
+  <script type="application/ld+json" set:html={JSON.stringify(schemaData)} />
+</head>
+<body class="article-body">
+  
+  <Header />
+
+  <!-- WRAPPER UTAMA (CSS GRID 2 KOLOM) -->
+  <main class="main-container">
+    
+    <!-- ==================== KOLOM KIRI: ARTIKEL ==================== -->
+    <article class="article-column">
+      
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/">Beranda</a>
+        <span class="sep" aria-hidden="true">/</span>
+        <a href={`/${categorySlug}`}>{post.data.category}</a>
+      </nav>
+
+      <!-- Header Judul -->
+      <header class="article-header">
+        <h1 class="article-title">{post.data.title}</h1>
+        
+        <div class="article-meta">
+          <span>Oleh <strong>{post.data.author}</strong></span>
+          <span class="dot" aria-hidden="true">•</span>
+          <span>Daerah <strong>{post.data.daerah}</strong></span>
+          <span class="dot" aria-hidden="true">•</span>
+          <time datetime={formatTanggalISO(post.data.date)}>{formatTanggal(post.data.date)}</time>
+          <span class="dot" aria-hidden="true">•</span>
+          <span>{readingTime} menit baca</span>
+        </div>
+
+        <!-- Tombol Share -->
+        <div class="share-row">
+          <span class="share-label">Bagikan</span>
+          <a href={`https://api.whatsapp.com/send?text=${encodeURIComponent(title)}%20-%20${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer" class="share-btn" aria-label="Bagikan ke WhatsApp">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5-.1-.1-.7-1.6-.9-2.2-.2-.5-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.3-.6-.4z"/><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 5L2 22l5.2-1.4c1.4.8 3.1 1.2 4.8 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18.3c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3.1.8.8-3-.2-.3c-.8-1.4-1.3-2.9-1.3-4.5 0-4.6 3.7-8.3 8.3-8.3s8.3 3.7 8.3 8.3-3.6 8.4-8.1 8.4z"/></svg>
+          </a>
+          <a href={`https://x.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`} target="_blank" rel="noopener noreferrer" class="share-btn" aria-label="Bagikan ke X">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.9 2H22l-7.5 8.6L23 22h-6.8l-5.3-6.9L4.8 22H1.7l8-9.2L1 2h6.9l4.8 6.3L18.9 2zm-1.2 18h1.7L7.4 3.9H5.6L17.7 20z"/></svg>
+          </a>
+          <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer" class="share-btn" aria-label="Bagikan ke Facebook">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.4h-1.2c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z"/></svg>
+          </a>
+          <a href={`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`} target="_blank" rel="noopener noreferrer" class="share-btn" aria-label="Bagikan ke Telegram">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 3L2 10.5l5.5 2 2 6.5 3-4 5 3.5L22 3zM9.5 14.3l-.3 3.2-1.4-4.6L19 5.5 9.5 14.3z"/></svg>
+          </a>
+        </div>
+      </header>
+
+      <!-- Gambar Utama -->
+      <figure class="article-figure">
+        <img src={image} alt={`Ilustrasi artikel: ${post.data.title}`} width="1200" height="675" fetchpriority="high" loading="eager" />
+        <figcaption>Ilustrasi: {post.data.title}</figcaption>
+      </figure>
+
+      <!-- ISI KONTEN MARKDOWN -->
+      <div class="article-content">
+        <Content />
+      </div>
+
+      <!-- Kotak Referensi -->
+      {post.data.referensi && (
+        <aside class="referensi" aria-label="Sumber Referensi">
+          <h3>Sumber Referensi</h3>
+          <p>{post.data.referensi}</p>
+        </aside>
+      )}
+
+      <!-- Kotak Bio Penulis -->
+      <div class="author-box">
+        <div class="author-avatar">{post.data.author.charAt(0).toUpperCase()}</div>
+        <div class="author-info">
+          <h3>{post.data.author}</h3>
+          <p>Kontributor Cangkrukan. Menulis tentang sejarah, budaya, dan literasi dari daerah {post.data.daerah}.</p>
+          <a href={`/penulis/${authorSlug}`} class="author-link">Lihat semua artikel →</a>
+        </div>
+      </div>
+
+      <!-- Navigasi Next/Prev -->
+      {(prevPost || nextPost) && (
+        <nav class="article-nav" aria-label="Navigasi Artikel">
+          {prevPost ? (
+            <a href={`/berita/${prevPost.id}`} class="article-nav-item prev">
+              <span class="nav-label">← Sebelumnya</span>
+              <span class="nav-title">{prevPost.data.title}</span>
+            </a>
+          ) : ( <span class="article-nav-item disabled"></span> )}
+          
+          {nextPost ? (
+            <a href={`/berita/${nextPost.id}`} class="article-nav-item next">
+              <span class="nav-label">Berikutnya →</span>
+              <span class="nav-title">{nextPost.data.title}</span>
+            </a>
+          ) : ( <span class="article-nav-item disabled"></span> )}
+        </nav>
+      )}
+
+      <!-- Tag Artikel -->
+      <div class="tag-section" aria-label="Tag Artikel">
+        <a href={`/${categorySlug}`} class="tag-item">#{post.data.category}</a>
+        <a href={`/daerah/${daerahSlug}`} class="tag-item">#{post.data.daerah}</a>
+        <a href={`/penulis/${authorSlug}`} class="tag-item">#{post.data.author}</a>
+      </div>
+
+    </article>
+
+    <!-- ==================== KOLOM KANAN: SIDEBAR ==================== -->
+    <aside class="sidebar-column">
+      
+      <!-- Widget Iklan -->
+      <div class="widget-ad">
+        ADVERTISEMENT
+      </div>
+
+      <!-- Widget Artikel Terbaru -->
+      <div class="widget-latest">
+        <h3 class="widget-title">Artikel Terbaru</h3>
+        <div class="latest-list">
+          {sidebarPosts.map((sp) => {
+            const spImage = sp.data.image || `https://picsum.photos/seed/${sp.id}/200/200`;
+            return (
+              <a href={`/berita/${sp.id}`} class="latest-item">
+                <img src={spImage} alt={sp.data.title} width="80" height="80" loading="lazy" />
+                <div class="latest-info">
+                  <h4>{sp.data.title}</h4>
+                  <span>{formatTanggalPendek(sp.data.date)}</span>
+                </div>
+              </a>
+            );
+          })}
+        </div>
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- ==================== SECTION BAWAH: ARTIKEL TERKAIT ==================== -->
+  {relatedPosts.length > 0 && (
+    <section class="related-section">
+      <div class="related-header">
+        <h2>Artikel Terkait</h2>
+        <a href={`/${categorySlug}`}>Lihat semua {post.data.category} →</a>
+      </div>
+      <div class="related-grid">
+        {relatedPosts.map((rp) => {
+          const rpImage = rp.data.image || `https://picsum.photos/seed/${rp.id}/600/400`;
+          return (
+            <a href={`/berita/${rp.id}`} class="related-card">
+              <div class="related-thumb">
+                <img src={rpImage} alt={rp.data.title} width="600" height="400" loading="lazy" />
+              </div>
+              <div class="related-body">
+                <span class="related-tag">{rp.data.category}</span>
+                <h3>{rp.data.title}</h3>
+                <div class="related-meta">
+                  <time datetime={formatTanggalISO(rp.data.date)}>{formatTanggalPendek(rp.data.date)}</time>
+                  <span class="dot">•</span>
+                  <span>{rp.data.daerah}</span>
+                </div>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </section>
+  )}
+
+  <Footer />
+
+  <!-- SCRIPT BACA JUGA TENGAH ARTIKEL -->
+  {bacaJuga && (
+    <script is:inline define:vars={{ bacaUrl: `/berita/${bacaJuga.id}`, bacaTitle: bacaJuga.data.title }}>
+      document.addEventListener('DOMContentLoaded', () => {
+        const article = document.querySelector('.article-content');
+        if (!article) return;
+        const paragraphs = article.querySelectorAll('p');
+        if (paragraphs.length >= 2) {
+          const target = paragraphs[1];
+          const box = document.createElement('div');
+          box.className = 'baca-juga-box';
+          box.innerHTML = `
+            <span class="baca-juga-label">Baca Juga</span>
+            <a href="${bacaUrl}" class="baca-juga-link">${bacaTitle}</a>
+          `;
+          target.parentNode.insertBefore(box, target.nextSibling);
+        }
+      });
+    </script>
+  )}
+
+  <!-- CSS TERPUSAT -->
+  <style>
+    /* ==== RESET & BASE ==== */
+    .article-body {
+      background: #ffffff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: #0c0c0c;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    /* ==== MAIN GRID (ALAYOUT MOJOK) ==== */
+    .main-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 50px;
+      align-items: start;
+    }
+
+    .article-column {
+      min-width: 0; /* Mencegah flex/grid meluber */
+    }
+
+    .sidebar-column {
+      position: sticky;
+      top: 40px;
+    }
+
+    /* ==== HEADER ARTIKEL ==== */
+    .breadcrumb {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .breadcrumb a {
+      color: #1E3F20;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .breadcrumb .sep {
+      color: #ccc;
+    }
+
+    .article-title {
+      font-size: 40px;
+      line-height: 1.25;
+      color: #111;
+      margin: 0 0 16px 0;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      word-wrap: break-word;
+    }
+
+    .article-meta {
+      font-size: 13.5px;
+      color: #666;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .article-meta strong {
+      color: #1E3F20;
+      font-weight: 700;
+    }
+    .article-meta .dot {
+      color: #ccc;
+    }
+
+    .share-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 0;
+      border-top: 1px solid #ececed;
+      border-bottom: 1px solid #ececed;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+    .share-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .share-btn {
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: #f4f6f4;
+      color: #1E3F20;
+      text-decoration: none;
+      transition: background 0.2s, color 0.2s;
+    }
+    .share-btn:hover {
+      background: #1E3F20;
+      color: #fff;
+    }
+
+    .article-figure {
+      margin: 0 0 30px 0;
+    }
+    .article-figure img {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      border-radius: 8px;
+      display: block;
+    }
+    .article-figure figcaption {
+      font-size: 12px;
+      color: #888;
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    /* ==== KONTEN MARKDOWN ==== */
+    .article-content {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 19px;
+      line-height: 1.7;
+      color: #0c0c0c;
+      overflow-wrap: break-word;
+    }
+    .article-content :global(p) { margin-bottom: 24px; }
+    .article-content :global(h2) { font-size: 26px; font-weight: 700; margin: 40px 0 16px 0; line-height: 1.3; }
+    .article-content :global(h3) { font-size: 22px; font-weight: 700; margin: 32px 0 14px 0; line-height: 1.3; }
+    .article-content :global(blockquote) { margin: 30px 0; padding: 8px 0 8px 20px; border-left: 4px solid #1E3F20; font-style: italic; font-size: 20px; }
+    .article-content :global(a) { color: #246204; text-decoration: underline; font-weight: 600; word-break: break-word; }
+    .article-content :global(img) { max-width: 100%; height: auto; border-radius: 6px; margin: 20px 0; }
+    .article-content :global(ul), .article-content :global(ol) { margin: 0 0 24px 20px; padding: 0; }
+    .article-content :global(li) { margin-bottom: 8px; }
+
+    /* STYLING BACA JUGA (Disisipkan via JS) */
+    .article-content :global(.baca-juga-box) {
+      display: block;
+      width: 100%;
+      margin: 32px 0;
+      padding: 16px 20px;
+      background: #f4f6f4;
+      border-left: 4px solid #1E3F20;
+      border-radius: 4px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .article-content :global(.baca-juga-label) {
+      display: inline-block;
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #fff;
+      background: #1E3F20;
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-right: 12px;
+      vertical-align: middle;
+    }
+    .article-content :global(.baca-juga-link) {
+      color: #1E3F20;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      font-weight: 700;
+      vertical-align: middle;
+      word-break: break-word;
+    }
+
+    /* ==== REFERENSI & AUTHOR BOX ==== */
+    .referensi {
+      margin-top: 40px;
+      padding: 20px;
+      background: #f4f6f4;
+      border-left: 4px solid #1E3F20;
+      border-radius: 4px;
+    }
+    .referensi h3 {
+      font-size: 13px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      text-transform: uppercase;
+      color: #1E3F20;
+      margin: 0 0 10px 0;
+    }
+    .referensi p {
+      font-size: 14px;
+      margin: 0;
+      color: #555;
+    }
+
+    .author-box {
+      display: flex;
+      gap: 20px;
+      background: #f4f6f4;
+      padding: 24px;
+      border-radius: 8px;
+      margin-top: 48px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .author-avatar {
+      width: 70px;
+      height: 70px;
+      background: #1E3F20;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+    .author-info {
+      flex: 1;
+      min-width: 200px;
+    }
+    .author-info h3 {
+      font-size: 18px;
+      color: #1E3F20;
+      margin: 0 0 6px 0;
+      font-weight: 700;
+    }
+    .author-info p {
+      font-size: 14px;
+      margin: 0 0 8px 0;
+      color: #444;
+    }
+    .author-link {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1E3F20;
+      text-decoration: none;
+      border-bottom: 1px dashed #1E3F20;
+    }
+
+    /* ==== NAVIGASI NEXT/PREV ==== */
+    .article-nav {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 40px;
+      padding-top: 30px;
+      border-top: 1px solid #ececed;
+    }
+    .article-nav-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 16px;
+      background: #f9faf9;
+      border: 1px solid #ececed;
+      border-radius: 8px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s;
+    }
+    .article-nav-item:hover {
+      border-color: #1E3F20;
+    }
+    .article-nav-item.next {
+      text-align: right;
+    }
+    .article-nav-item.disabled {
+      visibility: hidden;
+    }
+    .nav-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #1E3F20;
+      text-transform: uppercase;
+    }
+    .nav-title {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: #111;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ==== TAG SECTION ==== */
+    .tag-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #ececed;
+    }
+    .tag-item {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #1E3F20;
+      background: #f4f6f4;
+      padding: 6px 14px;
+      border-radius: 999px;
+      text-decoration: none;
+      border: 1px solid #e4ebe4;
+      transition: background 0.2s, color 0.2s;
+    }
+    .tag-item:hover {
+      background: #1E3F20;
+      color: #fff;
+    }
+
+    /* ==== SIDEBAR (KANAN) ==== */
+    .widget-ad {
+      background: #f9faf9;
+      border: 1px dashed #ccc;
+      height: 250px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+    }
+
+    .widget-latest {
+      background: #fff;
+      border: 1px solid #ececed;
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .widget-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #111;
+      margin: 0 0 16px 0;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #1E3F20;
+    }
+    .latest-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .latest-item {
+      display: flex;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+      align-items: center;
+    }
+    .latest-item img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .latest-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .latest-info h4 {
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 6px 0;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .latest-info span {
+      font-size: 11px;
+      color: #888;
+    }
+
+    /* ==== ARTIKEL TERKAIT (BAWAH FULL WIDTH) ==== */
+    .related-section {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px 60px;
+    }
+    .related-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 24px;
+      border-top: 2px solid #ececed;
+      padding-top: 40px;
+    }
+    .related-header h2 {
+      font-size: 24px;
+      font-weight: 800;
+      color: #111;
+      margin: 0;
+    }
+    .related-header a {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1E3F20;
+      text-decoration: none;
+      border-bottom: 1px dashed #1E3F20;
+    }
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .related-card {
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid #ececed;
+      border-radius: 8px;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .related-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+    .related-thumb img {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      display: block;
+    }
+    .related-body {
+      padding: 20px;
+    }
+    .related-tag {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #fff;
+      background: #1E3F20;
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 10px;
+    }
+    .related-body h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0 0 12px 0;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .related-meta {
+      font-size: 12px;
+      color: #888;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ==== RESPONSIVE (MOBILE & TABLET) ==== */
+    @media (max-width: 960px) {
+      .main-container {
+        grid-template-columns: 1fr; /* Ubah jadi 1 kolom */
+        padding-top: 20px;
+        gap: 40px;
+      }
+      .sidebar-column {
+        position: static; /* Hilangkan sticky di HP */
+      }
+      .related-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .article-title {
+        font-size: 30px;
+      }
+      .article-content {
+        font-size: 17.5px;
+      }
+      .article-content :global(h2) { font-size: 22px; }
+      .article-content :global(h3) { font-size: 19px; }
+      .article-content :global(blockquote) { font-size: 18px; }
+      
+      .article-nav {
+        grid-template-columns: 1fr;
+      }
+      .article-nav-item.next {
+        text-align: left;
+      }
+      .related-grid {
+        grid-template-columns: 1fr;
+      }
+      .author-box {
+        flex-direction: column;
+        text-align: center;
+      }
+      .author-info {
+        text-align: center;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+  </style>
+</body>
+</html>
