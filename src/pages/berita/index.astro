@@ -1,157 +1,71 @@
 ---
-import { getCollection, render } from 'astro:content';
+import { getCollection } from 'astro:content';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
 import '../../styles/global.css';
 
-export async function getStaticPaths() {
-  const artikel = await getCollection('berita');
-  const sorted = [...artikel].sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+// ==========================================
+// 1. PENGATURAN PAGINATION (HALAMAN)
+// ==========================================
+const ITEMS_PER_PAGE = 12; // Jumlah berita per halaman
+const currentPage = 1; // Halaman saat ini (index.astro adalah halaman 1)
 
-  return sorted.map((post) => {
-    const others = sorted.filter((p) => p.id !== post.id);
+// Ambil semua artikel dan urutkan berdasarkan tanggal terbaru
+const semuaArtikel = (await getCollection('berita')).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
 
-    const sameCategory = others.filter((p) => p.data.category === post.data.category);
-    const sameDaerah = others.filter(
-      (p) => p.data.daerah === post.data.daerah && p.data.category !== post.data.category
-    );
-    const latest = others.filter(
-      (p) => p.data.category !== post.data.category && p.data.daerah !== post.data.daerah
-    );
+// Hitung total halaman dan potong array sesuai halaman
+const totalPages = Math.ceil(semuaArtikel.length / ITEMS_PER_PAGE);
+const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+const artikelDitampilkan = semuaArtikel.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-    const seen = new Set();
-    const relatedPosts = [];
-    for (const p of [...sameCategory, ...sameDaerah, ...latest]) {
-      if (relatedPosts.length >= 3) break;
-      if (seen.has(p.id)) continue;
-      seen.add(p.id);
-      relatedPosts.push(p);
-    }
+// Sidebar: Ambil 5 artikel terbaru
+const sidebarPosts = semuaArtikel.slice(0, 5);
 
-    const prevPost = sorted.find((p) => p.data.date.valueOf() < post.data.date.valueOf()) || null;
-    const nextPost = [...sorted].reverse().find((p) => p.data.date.valueOf() > post.data.date.valueOf()) || null;
-
-    return {
-      params: { slug: post.id },
-      props: { post, relatedPosts, prevPost, nextPost },
-    };
-  });
-}
-
-const { post, relatedPosts, prevPost, nextPost } = Astro.props;
-const { Content } = await render(post);
-
-const formatTanggal = (date: Date) =>
-  new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
-
-const formatTanggalPendek = (date: Date) =>
-  new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
-
+// ==========================================
+// 2. UTILITAS & SEO DATA
+// ==========================================
+const gambarDefault = "https://picsum.photos/seed/cangkrukan-default/600/400";
+const formatTanggal = (date: Date) => new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
 const formatTanggalISO = (date: Date) => date.toISOString();
-const gambarDefault = 'https://picsum.photos/seed/cangkrukan-default/1200/630';
 
-const title = `${post.data.title} | Cangkrukan`;
-const description = post.data.description;
-const image = post.data.image || gambarDefault;
-const url = `https://cangkrukan.id/berita/${post.id}`;
-const authorSlug = post.data.author.toLowerCase().replace(/\s+/g, '-');
-const categorySlug = post.data.category.toLowerCase().replace(/\s+/g, '-');
-const daerahSlug = post.data.daerah.toLowerCase().replace(/\s+/g, '-');
-const wordCount = (post.body || '').trim().split(/\s+/).length;
-const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+const title = "Berita Terkini | Cangkrukan";
+const description = "Kumpulan berita dan artikel terbaru seputar sejarah, budaya, dan literasi dari Cangkrukan.";
+const url = "https://cangkrukan.id/berita/";
 
+// Schema Markup JSON-LD Khusus Halaman Indeks Berita (SEO Ekstrem)
 const schemaData = {
-  '@context': 'https://schema.org',
-  '@graph': [
+  "@context": "https://schema.org",
+  "@graph": [
     {
-      '@type': 'NewsArticle',
-      '@id': `${url}#article`,
-      mainEntityOfPage: { '@type': 'WebPage', '@id': url },
-      headline: post.data.title.substring(0, 110),
-      description: description,
-      image: {
-        '@type': 'ImageObject',
-        url: image,
-        width: 1200,
-        height: 630,
-      },
-      datePublished: formatTanggalISO(post.data.date),
-      dateModified: formatTanggalISO(post.data.date),
-      wordCount: wordCount,
-      timeRequired: `PT${readingTime}M`,
-      inLanguage: 'id-ID',
-      isAccessibleForFree: true,
-      author: {
-        '@type': 'Person',
-        name: post.data.author,
-        url: `https://cangkrukan.id/penulis/${authorSlug}`,
-      },
-      publisher: {
-        '@type': 'Organization',
-        name: 'Cangkrukan',
-        url: 'https://cangkrukan.id',
-        logo: {
-          '@type': 'ImageObject',
-          url: 'https://cangkrukan.id/logo.png',
-          width: 600,
-          height: 60,
-        },
-      },
-      articleSection: post.data.category,
-      keywords: [post.data.category, post.data.daerah, post.data.author].join(', '),
+      "@type": "CollectionPage",
+      "@id": `${url}#webpage`,
+      "url": url,
+      "name": title,
+      "description": description,
+      "isPartOf": { "@id": "https://cangkrukan.id/#website" },
+      "inLanguage": "id-ID"
     },
     {
-      '@type': 'BreadcrumbList',
-      '@id': `${url}#breadcrumb`,
-      itemListElement: [
-        {
-          '@type': 'ListItem',
-          position: 1,
-          name: 'Beranda',
-          item: 'https://cangkrukan.id',
-        },
-        {
-          '@type': 'ListItem',
-          position: 2,
-          name: post.data.category,
-          item: `https://cangkrukan.id/${categorySlug}`,
-        },
-        {
-          '@type': 'ListItem',
-          position: 3,
-          name: post.data.title,
-          item: url,
-        },
-      ],
+      "@type": "BreadcrumbList",
+      "@id": `${url}#breadcrumb`,
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Beranda", "item": "https://cangkrukan.id/" },
+        { "@type": "ListItem", "position": 2, "name": "Berita", "item": url }
+      ]
     },
     {
-      '@type': 'Person',
-      '@id': `https://cangkrukan.id/penulis/${authorSlug}#person`,
-      name: post.data.author,
-      url: `https://cangkrukan.id/penulis/${authorSlug}`,
-      description: `Kontributor Cangkrukan yang menulis tentang sejarah, budaya, dan literasi dari daerah ${post.data.daerah}.`,
-    },
-    {
-      '@type': 'Organization',
-      '@id': 'https://cangkrukan.id#organization',
-      name: 'Cangkrukan',
-      url: 'https://cangkrukan.id',
-      logo: {
-        '@type': 'ImageObject',
-        url: 'https://cangkrukan.id/logo.png',
-        width: 600,
-        height: 60,
-      },
-    },
-    {
-      '@type': 'WebSite',
-      '@id': 'https://cangkrukan.id#website',
-      url: 'https://cangkrukan.id',
-      name: 'Cangkrukan',
-      inLanguage: 'id-ID',
-      publisher: { '@id': 'https://cangkrukan.id#organization' },
-    },
-  ],
+      "@type": "ItemList",
+      "@id": `${url}#itemlist`,
+      "itemListElement": artikelDitampilkan.map((post, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "url": `https://cangkrukan.id/berita/${post.id}`,
+        "name": post.data.title
+      }))
+    }
+  ]
 };
 ---
 <!DOCTYPE html>
@@ -162,749 +76,568 @@ const schemaData = {
   <title>{title}</title>
   <meta name="description" content={description} />
   <link rel="canonical" href={url} />
-
+  
+  <!-- SEO Meta Tags -->
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-  <meta name="author" content={post.data.author} />
-  <meta name="keywords" content={`${post.data.category}, ${post.data.daerah}, ${post.data.author}, cangkrukan, berita daerah`} />
-  <meta name="theme-color" content="#1E3F20" />
-
+  <meta name="theme-color" content="#AD120A" />
+  
+  <!-- Open Graph / Facebook -->
   <meta property="og:locale" content="id_ID" />
-  <meta property="og:type" content="article" />
+  <meta property="og:type" content="website" />
   <meta property="og:url" content={url} />
   <meta property="og:site_name" content="Cangkrukan" />
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
-  <meta property="og:image" content={image} />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content={`Ilustrasi artikel: ${post.data.title}`} />
-  <meta property="article:published_time" content={formatTanggalISO(post.data.date)} />
-  <meta property="article:modified_time" content={formatTanggalISO(post.data.date)} />
-  <meta property="article:section" content={post.data.category} />
-  <meta property="article:author" content={post.data.author} />
-  <meta property="article:tag" content={post.data.category} />
-  <meta property="article:tag" content={post.data.daerah} />
-
+  
+  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={title} />
   <meta name="twitter:description" content={description} />
-  <meta name="twitter:image" content={image} />
-  <meta name="twitter:image:alt" content={`Ilustrasi artikel: ${post.data.title}`} />
-  <meta name="twitter:label1" content="Ditulis oleh" />
-  <meta name="twitter:data1" content={post.data.author} />
-  <meta name="twitter:label2" content="Waktu baca" />
-  <meta name="twitter:data2" content={`${readingTime} menit`} />
-
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preconnect" href="https://picsum.photos" />
-  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-  <link rel="dns-prefetch" href="https://picsum.photos" />
-
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
   <script type="application/ld+json" set:html={JSON.stringify(schemaData)} />
-</head>
-<body class="article-body">
-  <Header />
-
-  <main class="article-wrapper">
-    <nav class="breadcrumb" aria-label="Breadcrumb">
-      <a href="/">Beranda</a>
-      <span class="sep" aria-hidden="true">/</span>
-      <a href={`/${categorySlug}`}>{post.data.category}</a>
-      <span class="sep" aria-hidden="true">/</span>
-      <span class="current" aria-current="page">{post.data.title}</span>
-    </nav>
-
-    <header class="article-header">
-      <h1 class="article-title">{post.data.title}</h1>
-
-      <div class="article-meta">
-        <span class="meta-item">Oleh <strong>{post.data.author}</strong></span>
-        <span class="dot" aria-hidden="true">•</span>
-        <span class="meta-item">Daerah <strong>{post.data.daerah}</strong></span>
-        <span class="dot" aria-hidden="true">•</span>
-        <time datetime={formatTanggalISO(post.data.date)}>{formatTanggal(post.data.date)}</time>
-        <span class="dot" aria-hidden="true">•</span>
-        <span class="meta-item">{readingTime} menit baca</span>
-      </div>
-
-      <div class="share-row">
-        <span class="share-label">Bagikan</span>
-        <a
-          href={`https://api.whatsapp.com/send?text=${encodeURIComponent(title)}%20-%20${encodeURIComponent(url)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="share-btn"
-          aria-label="Bagikan ke WhatsApp"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5-.1-.1-.7-1.6-.9-2.2-.2-.5-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.3-.6-.4z"/><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 5L2 22l5.2-1.4c1.4.8 3.1 1.2 4.8 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18.3c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3.1.8.8-3-.2-.3c-.8-1.4-1.3-2.9-1.3-4.5 0-4.6 3.7-8.3 8.3-8.3s8.3 3.7 8.3 8.3-3.6 8.4-8.1 8.4z"/></svg>
-        </a>
-        <a
-          href={`https://x.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="share-btn"
-          aria-label="Bagikan ke X"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.9 2H22l-7.5 8.6L23 22h-6.8l-5.3-6.9L4.8 22H1.7l8-9.2L1 2h6.9l4.8 6.3L18.9 2zm-1.2 18h1.7L7.4 3.9H5.6L17.7 20z"/></svg>
-        </a>
-        <a
-          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="share-btn"
-          aria-label="Bagikan ke Facebook"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.4h-1.2c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z"/></svg>
-        </a>
-        <a
-          href={`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="share-btn"
-          aria-label="Bagikan ke Telegram"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22 3L2 10.5l5.5 2 2 6.5 3-4 5 3.5L22 3zM9.5 14.3l-.3 3.2-1.4-4.6L19 5.5 9.5 14.3z"/></svg>
-        </a>
-        <a
-          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="share-btn"
-          aria-label="Bagikan ke LinkedIn"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.4 3H3.6C3.2 3 3 3.2 3 3.6v16.8c0 .4.2.6.6.6h16.8c.4 0 .6-.2.6-.6V3.6c0-.4-.2-.6-.6-.6zM8.3 18.3H5.6V9.8h2.7v8.5zM6.9 8.6c-.9 0-1.6-.7-1.6-1.6s.7-1.6 1.6-1.6 1.6.7 1.6 1.6-.7 1.6-1.6 1.6zm11.4 9.7h-2.7v-4.4c0-1.1 0-2.4-1.5-2.4s-1.7 1.1-1.7 2.3v4.5H9.7V9.8h2.6v1.2h.1c.4-.7 1.3-1.5 2.6-1.5 2.8 0 3.3 1.8 3.3 4.2v4.6z"/></svg>
-        </a>
-      </div>
-    </header>
-
-    <figure class="article-figure">
-      <img
-        src={image}
-        alt={`Ilustrasi artikel: ${post.data.title}`}
-        width="1200"
-        height="675"
-        fetchpriority="high"
-        loading="eager"
-        decoding="async"
-      />
-      <figcaption>Ilustrasi: {post.data.title}</figcaption>
-    </figure>
-
-    <article class="article-content">
-      <Content />
-    </article>
-
-    {post.data.referensi && (
-      <aside class="referensi" aria-label="Sumber Referensi">
-        <h3>Sumber Referensi</h3>
-        <p>{post.data.referensi}</p>
-      </aside>
-    )}
-
-    <div class="author-box">
-      <div class="author-avatar">{post.data.author.charAt(0).toUpperCase()}</div>
-      <div class="author-info">
-        <h3>{post.data.author}</h3>
-        <p>
-          Kontributor Cangkrukan. Menulis tentang sejarah, budaya, dan literasi dari daerah {post.data.daerah}.
-        </p>
-        <a href={`/penulis/${authorSlug}`} class="author-link">Lihat semua artikel →</a>
-      </div>
-    </div>
-
-    {(prevPost || nextPost) && (
-      <nav class="article-nav" aria-label="Navigasi Artikel">
-        {prevPost ? (
-          <a href={`/berita/${prevPost.id}`} class="article-nav-item prev">
-            <span class="nav-label">← Sebelumnya</span>
-            <span class="nav-title">{prevPost.data.title}</span>
-            <span class="nav-date">{formatTanggalPendek(prevPost.data.date)}</span>
-          </a>
-        ) : (
-          <span class="article-nav-item disabled" aria-hidden="true"></span>
-        )}
-        {nextPost ? (
-          <a href={`/berita/${nextPost.id}`} class="article-nav-item next">
-            <span class="nav-label">Berikutnya →</span>
-            <span class="nav-title">{nextPost.data.title}</span>
-            <span class="nav-date">{formatTanggalPendek(nextPost.data.date)}</span>
-          </a>
-        ) : (
-          <span class="article-nav-item disabled" aria-hidden="true"></span>
-        )}
-      </nav>
-    )}
-
-    {relatedPosts.length > 0 && (
-      <section class="related-section" aria-label="Artikel Terkait">
-        <div class="related-header">
-          <h2>Artikel Terkait</h2>
-          <a href={`/${categorySlug}`} class="related-more">
-            Lihat semua {post.data.category} →
-          </a>
-        </div>
-        <div class="related-grid">
-          {relatedPosts.map((rp) => {
-            const rpImage = rp.data.image || `https://picsum.photos/seed/${rp.id}/600/400`;
-            const rpCategorySlug = rp.data.category.toLowerCase().replace(/\s+/g, '-');
-            return (
-              <a href={`/berita/${rp.id}`} class="related-card">
-                <div class="related-thumb">
-                  <img src={rpImage} alt={rp.data.title} width="600" height="400" loading="lazy" decoding="async" />
-                </div>
-                <div class="related-body">
-                  <span class="related-tag">{rp.data.category}</span>
-                  <h3>{rp.data.title}</h3>
-                  <div class="related-meta">
-                    <time datetime={formatTanggalISO(rp.data.date)}>{formatTanggalPendek(rp.data.date)}</time>
-                    <span class="dot" aria-hidden="true">•</span>
-                    <span>{rp.data.daerah}</span>
-                  </div>
-                </div>
-              </a>
-            );
-          })}
-        </div>
-      </section>
-    )}
-
-    <div class="tag-section" aria-label="Tag Artikel">
-      <a href={`/${categorySlug}`} class="tag-item">#{post.data.category}</a>
-      <a href={`/daerah/${daerahSlug}`} class="tag-item">#{post.data.daerah}</a>
-      <a href={`/penulis/${authorSlug}`} class="tag-item">#{post.data.author}</a>
-    </div>
-
-    <div class="back-home">
-      <a href="/">← Kembali ke Beranda</a>
-    </div>
-  </main>
-
-  <Footer />
 
   <style>
-    .article-body {
-      background: #ffffff;
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      color: #0c0c0c;
+    /* ========================================================
+       RESET & BASE STYLES
+       ======================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    html {
+      scroll-behavior: smooth;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #ffffff;
+      color: #111111;
+      line-height: 1.5;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       text-rendering: optimizeLegibility;
-    }
-
-    .article-wrapper {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 32px 20px 80px;
-    }
-
-    .breadcrumb {
-      font-size: 13px;
-      color: #888;
-      margin-bottom: 24px;
-      letter-spacing: 0.2px;
-      line-height: 1.6;
-    }
-    .breadcrumb a {
-      color: #1E3F20;
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .breadcrumb a:hover {
-      text-decoration: underline;
-    }
-    .breadcrumb .sep {
-      margin: 0 8px;
-      color: #ccc;
-    }
-    .breadcrumb .current {
-      color: #999;
-      display: inline-block;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      vertical-align: bottom;
-    }
-
-    .article-header {
-      margin-bottom: 8px;
-    }
-
-    .article-title {
-      font-size: 36px;
-      line-height: 1.25;
-      color: #111;
-      margin: 0 0 20px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-    }
-
-    .article-meta {
-      font-size: 13.5px;
-      color: #666;
-      margin-bottom: 24px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-    }
-    .article-meta strong {
-      color: #1E3F20;
-      font-weight: 700;
-    }
-    .article-meta .dot {
-      color: #ccc;
-    }
-
-    .share-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 16px 0;
-      border-top: 1px solid #ececed;
-      border-bottom: 1px solid #ececed;
-      margin-bottom: 32px;
-      flex-wrap: wrap;
-    }
-    .share-label {
-      font-size: 11px;
-      font-weight: 800;
-      color: #666;
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
-      margin-right: 6px;
-    }
-    .share-btn {
-      width: 38px;
-      height: 38px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background: #f4f6f4;
-      color: #1E3F20;
-      text-decoration: none;
-      transition: background 0.2s, color 0.2s, transform 0.2s;
-    }
-    .share-btn:hover {
-      background: #1E3F20;
-      color: #fff;
-      transform: translateY(-1px);
-    }
-
-    .article-figure {
-      margin: 0 0 32px;
-    }
-    .article-figure img {
       width: 100%;
-      height: auto;
-      aspect-ratio: 16 / 9;
-      object-fit: cover;
-      border-radius: 6px;
-      display: block;
+      max-width: 100vw;
+      overflow-x: hidden;
     }
-    .article-figure figcaption {
-      font-size: 12px;
-      color: #888;
-      margin-top: 8px;
-      font-style: italic;
-    }
-
-    .article-content {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 19px;
-      line-height: 1.7;
-      color: #0c0c0c;
-    }
-    .article-content p {
-      margin-bottom: 24px;
-    }
-    .article-content h2 {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 28px;
-      font-weight: 700;
-      margin: 48px 0 20px;
-      color: #0c0c0c;
-      line-height: 1.3;
-    }
-    .article-content h3 {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 23px;
-      font-weight: 700;
-      margin: 36px 0 16px;
-      color: #0c0c0c;
-      line-height: 1.3;
-    }
-    .article-content blockquote {
-      margin: 36px 0;
-      padding: 8px 0 8px 24px;
-      border-left: 4px solid #1E3F20;
-      font-style: italic;
-      font-size: 21px;
-      color: #333;
-    }
-    .article-content a {
-      color: #246204;
-      text-decoration: underline;
-      text-underline-offset: 3px;
-      font-weight: 600;
-    }
-    .article-content img {
-      max-width: 100%;
-      height: auto;
-      border-radius: 6px;
-      margin: 24px 0;
-    }
-    .article-content ul,
-    .article-content ol {
-      margin: 0 0 24px 24px;
-    }
-    .article-content li {
-      margin-bottom: 8px;
-    }
-    .article-content figure {
-      margin: 32px 0;
-    }
-    .article-content figcaption {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-size: 12px;
-      color: #888;
-      margin-top: 8px;
-      text-align: center;
-      font-style: italic;
-    }
-
-    .referensi {
-      margin-top: 48px;
-      padding: 20px 24px;
-      background: #f4f6f4;
-      border-left: 4px solid #1E3F20;
-      border-radius: 4px;
-    }
-    .referensi h3 {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-size: 13px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #1E3F20;
-      margin: 0 0 10px;
-    }
-    .referensi p {
-      font-size: 14px;
-      color: #555;
-      margin: 0;
-      line-height: 1.6;
-    }
-
-    .author-box {
-      display: flex;
-      gap: 20px;
-      align-items: center;
-      background: #f4f6f4;
-      padding: 28px;
-      border-radius: 8px;
-      margin-top: 48px;
-    }
-    .author-avatar {
-      width: 80px;
-      height: 80px;
-      background: #1E3F20;
-      color: #fff;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 30px;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-    .author-info h3 {
-      font-size: 19px;
-      color: #1E3F20;
-      margin: 0 0 6px;
-      font-weight: 700;
-    }
-    .author-info p {
-      font-size: 14px;
-      line-height: 1.6;
-      margin: 0 0 8px;
-      color: #444;
-    }
-    .author-link {
-      font-size: 13px;
-      font-weight: 600;
-      color: #1E3F20;
-      text-decoration: none;
-      border-bottom: 1px dashed #1E3F20;
-    }
-    .author-link:hover {
-      opacity: 0.75;
-    }
-
-    .article-nav {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-top: 48px;
-      padding-top: 32px;
-      border-top: 1px solid #ececed;
-    }
-    .article-nav-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 16px 18px;
-      background: #f9faf9;
-      border: 1px solid #ececed;
-      border-radius: 8px;
+    
+    a {
       text-decoration: none;
       color: inherit;
-      transition: border-color 0.2s, background 0.2s;
+      transition: color 0.2s ease;
     }
-    .article-nav-item:hover {
-      border-color: #1E3F20;
-      background: #f4f6f4;
-    }
-    .article-nav-item.next {
-      text-align: right;
-    }
-    .article-nav-item.disabled {
-      background: transparent;
-      border: none;
-    }
-    .nav-label {
-      font-size: 11px;
-      font-weight: 800;
-      color: #1E3F20;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .nav-title {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 16px;
-      font-weight: 700;
-      color: #111;
-      line-height: 1.35;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .nav-date {
-      font-size: 11.5px;
-      color: #888;
+    
+    img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      background-color: #f0f0f0;
     }
 
-    .related-section {
-      margin-top: 56px;
-      padding-top: 32px;
-      border-top: 2px solid #ececed;
+    /* ========================================================
+       LAYOUT CONTAINER & GRID
+       ======================================================== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px 16px;
     }
-    .related-header {
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 40px;
+      margin-top: 24px;
+      align-items: start;
+    }
+
+    /* ========================================================
+       HEADER KATEGORI
+       ======================================================== */
+    .page-header {
+      border-bottom: 2px solid #111;
+      padding-bottom: 16px;
+      margin-bottom: 32px;
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
+      align-items: flex-end;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 24px;
+      gap: 16px;
     }
-    .related-header h2 {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 24px;
-      font-weight: 700;
-      color: #1E3F20;
+
+    .page-title {
+      font-size: 32px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
       margin: 0;
+      color: #111;
     }
-    .related-more {
-      font-size: 13px;
-      font-weight: 600;
-      color: #1E3F20;
-      text-decoration: none;
-      border-bottom: 1px dashed #1E3F20;
+
+    .page-subtitle {
+      font-size: 14px;
+      color: #666;
+      margin-top: 8px;
+      font-weight: 400;
     }
-    .related-more:hover {
-      opacity: 0.75;
+
+    .page-count {
+      font-size: 12px;
+      font-weight: 700;
+      background: #f5f5f5;
+      padding: 6px 12px;
+      border-radius: 4px;
+      color: #333;
     }
-    .related-grid {
+
+    /* ========================================================
+       GRID DAFTAR BERITA UTAMA
+       ======================================================== */
+    .news-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-    }
-    .related-card {
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-      border: 1px solid #ececed;
-      border-radius: 8px;
-      overflow: hidden;
-      text-decoration: none;
-      color: inherit;
-      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-    }
-    .related-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
-      border-color: #d8e0d8;
-    }
-    .related-thumb {
-      aspect-ratio: 16 / 10;
-      overflow: hidden;
-      background: #f4f6f4;
-    }
-    .related-thumb img {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 32px 24px;
       width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      transition: transform 0.4s;
     }
-    .related-card:hover .related-thumb img {
-      transform: scale(1.05);
-    }
-    .related-body {
-      padding: 14px;
+    
+    .news-card {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      width: 100%;
+      background: #fff;
+      border-radius: 4px;
     }
-    .related-tag {
-      font-size: 10px;
+    
+    .news-card-img-wrapper {
+      width: 100%;
+      overflow: hidden;
+      border-radius: 4px;
+      margin-bottom: 16px;
+      background-color: #f0f0f0;
+    }
+
+    .news-card img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      transition: opacity 0.3s ease;
+    }
+    
+    .news-card:hover img {
+      opacity: 0.9;
+    }
+    
+    .news-card-cat {
+      font-size: 11px;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #1E3F20;
-      background: #f4f6f4;
-      align-self: flex-start;
-      padding: 3px 8px;
-      border-radius: 999px;
+      letter-spacing: 0.5px;
+      color: #AD120A;
+      margin-bottom: 8px;
+      display: inline-block;
     }
-    .related-body h3 {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 16px;
+    
+    .news-card-title {
+      font-size: 20px;
+      font-weight: 800;
       line-height: 1.35;
-      font-weight: 700;
+      margin-bottom: 12px;
       color: #111;
-      margin: 0;
+      letter-spacing: -0.3px;
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
-    .related-meta {
-      font-size: 11.5px;
-      color: #888;
-      margin-top: 4px;
+    
+    .news-card:hover .news-card-title {
+      color: #AD120A;
+    }
+    
+    .news-card-desc {
+      font-size: 14px;
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 16px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    
+    .news-card-meta {
+      font-size: 12px;
+      color: #777;
+      font-weight: 500;
+      margin-top: auto;
       display: flex;
       align-items: center;
-      gap: 4px;
-      flex-wrap: wrap;
-    }
-    .related-meta .dot {
-      color: #ccc;
-    }
-
-    .tag-section {
-      display: flex;
-      flex-wrap: wrap;
       gap: 8px;
-      margin-top: 40px;
-      padding-top: 24px;
-      border-top: 1px solid #ececed;
-    }
-    .tag-item {
-      font-size: 12.5px;
-      font-weight: 600;
-      color: #1E3F20;
-      background: #f4f6f4;
-      padding: 6px 14px;
-      border-radius: 999px;
-      text-decoration: none;
-      border: 1px solid #e4ebe4;
-      transition: background 0.2s, color 0.2s;
-    }
-    .tag-item:hover {
-      background: #1E3F20;
-      color: #fff;
     }
 
-    .back-home {
-      margin-top: 40px;
-      text-align: center;
+    .news-card-meta strong {
+      color: #111;
+      font-weight: 600;
     }
-    .back-home a {
-      display: inline-block;
+
+    /* ========================================================
+       SIDEBAR
+       ======================================================== */
+    .sidebar-wrapper {
+      position: sticky;
+      top: 40px;
+    }
+    
+    .sidebar-section {
+      margin-bottom: 40px;
+    }
+
+    .sidebar-title {
+      font-size: 18px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 3px solid #AD120A;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      color: #111;
+    }
+    
+    .sidebar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .sidebar-item {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .sidebar-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    
+    .sidebar-item img {
+      width: 90px;
+      height: 70px;
+      object-fit: cover;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    
+    .sidebar-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .sidebar-item-title {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 6px;
+      color: #111;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    
+    .sidebar-item:hover .sidebar-item-title {
+      color: #AD120A;
+    }
+    
+    .sidebar-meta {
+      font-size: 11px;
+      color: #777;
+      text-transform: uppercase;
+      font-weight: 600;
+      display: block;
+    }
+
+    /* ========================================================
+       WIDGET IKLAN
+       ======================================================== */
+    .widget-ad {
+      background: #f9faf9;
+      border: 1px dashed #ccc;
+      height: 250px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      border-radius: 4px;
+      margin-bottom: 32px;
+    }
+
+    /* ========================================================
+       PAGINATION (NAVIGASI HALAMAN)
+       ======================================================== */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 60px;
+      padding-top: 32px;
+      border-top: 1px solid #eee;
+    }
+
+    .page-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
       font-size: 14px;
       font-weight: 600;
-      color: #1E3F20;
-      text-decoration: none;
-      padding: 10px 20px;
-      border: 1px solid #d8e0d8;
-      border-radius: 999px;
-      transition: background 0.2s, color 0.2s;
+      color: #111;
+      background: #f5f5f5;
+      border-radius: 4px;
+      transition: all 0.2s;
     }
-    .back-home a:hover {
-      background: #1E3F20;
+
+    .page-btn:hover {
+      background: #e5e5e5;
+    }
+
+    .page-btn.active {
+      background: #AD120A;
       color: #fff;
     }
 
-    @media (max-width: 640px) {
-      .article-wrapper {
-        padding: 20px 16px 60px;
-      }
-      .article-title {
-        font-size: 27px;
-        line-height: 1.3;
-      }
-      .article-content {
-        font-size: 17.5px;
-      }
-      .article-content h2 {
-        font-size: 24px;
-      }
-      .article-content h3 {
-        font-size: 20px;
-      }
-      .article-content blockquote {
-        font-size: 18px;
-        padding-left: 18px;
-      }
-      .author-box {
-        flex-direction: column;
-        text-align: center;
-        padding: 24px;
-      }
-      .share-row {
-        flex-wrap: wrap;
-      }
-      .related-grid {
+    .page-btn.disabled {
+      background: #fff;
+      color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .page-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      margin: 0 12px;
+    }
+
+    /* ========================================================
+       RESPONSIVE DESIGN
+       ======================================================== */
+    
+    /* Laptop Kecil / Tablet Landscape */
+    @media (max-width: 1024px) {
+      .main-grid {
         grid-template-columns: 1fr;
       }
-      .related-header {
+      
+      .sidebar-wrapper {
+        position: static;
+      }
+      
+      .news-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* Tablet Portrait / HP Besar */
+    @media (max-width: 768px) {
+      .page-header {
         flex-direction: column;
         align-items: flex-start;
       }
-      .article-nav {
+
+      .page-title {
+        font-size: 26px;
+      }
+
+      .news-grid {
         grid-template-columns: 1fr;
       }
-      .article-nav-item.next {
-        text-align: left;
+      
+      .news-card-title {
+        font-size: 18px;
+      }
+
+      .pagination {
+        flex-wrap: wrap;
       }
     }
 
+    /* HP Kecil */
+    @media (max-width: 480px) {
+      .container {
+        padding: 16px 12px;
+      }
+
+      .page-title {
+        font-size: 22px;
+      }
+
+      .news-card-title {
+        font-size: 16px;
+      }
+      
+      .news-card-desc {
+        font-size: 13px;
+      }
+
+      .sidebar-item img {
+        width: 70px;
+        height: 50px;
+      }
+    }
+
+    /* Aksesibilitas: Mengurangi Animasi jika diminta OS */
     @media (prefers-reduced-motion: reduce) {
       * {
         transition: none !important;
         animation: none !important;
+        scroll-behavior: auto !important;
       }
     }
   </style>
+</head>
+<body>
+  <Header />
+  
+  <main class="container">
+    
+    <!-- BREADCRUMB -->
+    <nav aria-label="Breadcrumb" style="font-size: 12px; color: #666; margin-bottom: 16px; display: flex; gap: 8px;">
+      <a href="/" style="font-weight: 600; color: #111;">Beranda</a>
+      <span>/</span>
+      <span style="color: #AD120A; font-weight: 600;">Berita</span>
+    </nav>
+
+    <div class="main-grid">
+      
+      <!-- ==================== KOLOM KIRI: DAFTAR BERITA ==================== -->
+      <div class="main-content">
+        
+        <!-- HEADER HALAMAN -->
+        <header class="page-header">
+          <div>
+            <h1 class="page-title">Berita Terkini</h1>
+            <p class="page-subtitle">Kumpulan informasi, literasi, dan dinamika mahasiswa.</p>
+          </div>
+          <div class="page-count">
+            Total {semuaArtikel.length} Artikel
+          </div>
+        </header>
+
+        <!-- GRID BERITA -->
+        {artikelDitampilkan.length > 0 ? (
+          <div class="news-grid">
+            {artikelDitampilkan.map((post) => (
+              <a href={`/berita/${post.id}`} class="news-card" aria-label={`Baca artikel: ${post.data.title}`}>
+                
+                <div class="news-card-img-wrapper">
+                  <img 
+                    src={post.data.image || gambarDefault} 
+                    alt={`Ilustrasi artikel ${post.data.title}`} 
+                    width="600" 
+                    height="338"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+
+                <div class="news-card-body">
+                  <span class="news-card-cat">{post.data.category} • {post.data.daerah}</span>
+                  <h2 class="news-card-title">{post.data.title}</h2>
+                  
+                  {post.data.description && (
+                    <p class="news-card-desc">{post.data.description}</p>
+                  )}
+
+                  <div class="news-card-meta">
+                    <strong>{post.data.author}</strong>
+                    <span>•</span>
+                    <time datetime={formatTanggalISO(post.data.date)}>{formatTanggal(post.data.date)}</time>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div style="padding: 40px; text-align: center; background: #f9f9f9; border-radius: 8px;">
+            <h3 style="font-size: 18px; color: #333;">Belum ada artikel yang dipublikasikan.</h3>
+          </div>
+        )}
+
+        <!-- PAGINATION (Hanya muncul jika halaman lebih dari 1) -->
+        {totalPages > 1 && (
+          <nav class="pagination" aria-label="Navigasi Halaman">
+            <span class="page-btn disabled" aria-hidden="true">←</span>
+            {Array.from({ length: totalPages }).map((_, i) => {
+              const pageNum = i + 1;
+              const isActive = pageNum === currentPage;
+              const pageUrl = pageNum === 1 ? '/berita/' : `/berita/page/${pageNum}`;
+              
+              return (
+                <a 
+                  href={pageUrl} 
+                  class={`page-btn ${isActive ? 'active' : ''}`}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  {pageNum}
+                </a>
+              );
+            })}
+            <span class="page-btn disabled" aria-hidden="true">→</span>
+          </nav>
+        )}
+
+      </div>
+
+      <!-- ==================== KOLOM KANAN: SIDEBAR ==================== -->
+      <aside class="sidebar-wrapper" aria-label="Sidebar">
+        
+        <div class="widget-ad">
+          ADVERTISEMENT
+        </div>
+
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">Terpopuler</h3>
+          <div class="sidebar-list">
+            {sidebarPosts.map((post) => (
+              <a href={`/berita/${post.id}`} class="sidebar-item" aria-label={`Baca artikel populer: ${post.data.title}`}>
+                <img 
+                  src={post.data.image || gambarDefault} 
+                  alt={`Thumbnail ${post.data.title}`} 
+                  width="180" 
+                  height="140"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="sidebar-info">
+                  <h4 class="sidebar-item-title">{post.data.title}</h4>
+                  <span class="sidebar-meta">{post.data.category} &middot; {formatTanggal(post.data.date)}</span>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+  </main>
+  
+  <Footer />
 </body>
 </html>

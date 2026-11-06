@@ -1,51 +1,22 @@
----
----
 <header class="site-header">
   <div class="container">
     <div class="header-top">
-      <a href="/" class="site-logo">CANGKRUKAN<span>.</span></a>
-      <a href="/kirim-tulisan" class="btn-kirim">Kirim Tulisan</a>
+      <a href="/" class="site-logo">CANGKRUKAN.</a>
+      <div class="header-actions">
+        <a href="/kirim" class="btn-kirim">Kirim Tulisan</a>
+      </div>
     </div>
+    <nav class="nav-menu">
+      <div class="container">
+        <ul>
+          <li><a href="/">Beranda</a></li>
+          <li><a href="/sejarah">Sejarah</a></li>
+          <li><a href="/budaya">Budaya</a></li>
+          <li><a href="/opini">Opini</a></li>
+          <li><a href="/literasi">Literasi</a></li>
+          <li><a href="/liputan">Liputan</a></li>
+        </ul>
+      </div>
+    </nav>
   </div>
-  <nav class="nav-menu">
-    <div class="container">
-      <ul>
-        <li><a href="/">Beranda</a></li>
-        <li><a href="/">Sejarah</a></li>
-        <li><a href="/">Budaya</a></li>
-        <li><a href="/">Opini</a></li>
-        <li><a href="/">Literasi</a></li>
-        <li><a href="/">Liputan Nasional</a></li>
-      </ul>
-    </div>
-  </nav>
 </header>
-
-<style>
-  .nav-menu ul {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .nav-menu ul::-webkit-scrollbar {
-    display: none;
-  }
-  @media (max-width: 768px) {
-    .header-top {
-      padding: 10px 0;
-    }
-    .site-logo {
-      font-size: 22px;
-    }
-    .btn-kirim {
-      padding: 6px 12px;
-      font-size: 12px;
-    }
-    .nav-menu ul {
-      padding: 10px 0;
-      gap: 15px;
-    }
-    .nav-menu a {
-      font-size: 13px;
-    }
-  }
-</style>

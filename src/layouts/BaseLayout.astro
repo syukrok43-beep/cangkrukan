@@ -1,17 +1,25 @@
 ---
 import '../styles/global.css';
+import { ClientRouter } from 'astro:transitions'; // Hapus baris ini jika Astro Anda di bawah v4
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 
 export interface Props {
   title: string;
   description?: string;
+  image?: string;
+  article?: boolean;
 }
 
 const { 
   title, 
-  description = "Ruang ngobrol untuk ide, opini, dan esai mahasiswa." 
+  description = "Ruang ngobrol untuk ide, opini, dan esai mahasiswa. Menyajikan perspektif baru seputar literasi, budaya, dan sejarah.", 
+  image = "https://cangkrukan.id/default-og-image.jpg",
+  article = false
 } = Astro.props;
+
+// Mendapatkan URL saat ini secara otomatis
+const canonicalURL = new URL(Astro.url.pathname, Astro.site || "https://cangkrukan.id");
 ---
 
 <!DOCTYPE html>
@@ -19,14 +27,46 @@ const {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content={description} />
+  <meta name="generator" content={Astro.generator} />
+
+  <!-- Primary Meta Tags -->
   <title>{title} | Cangkrukan</title>
+  <meta name="title" content={`${title} | Cangkrukan`} />
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonicalURL} />
+  <meta name="theme-color" content="#d61d23" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content={article ? "article" : "website"} />
+  <meta property="og:url" content={canonicalURL} />
+  <meta property="og:title" content={`${title} | Cangkrukan`} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content={image} />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content={canonicalURL} />
+  <meta property="twitter:title" content={`${title} | Cangkrukan`} />
+  <meta property="twitter:description" content={description} />
+  <meta property="twitter:image" content={image} />
+
+  <!-- Preconnect untuk Google Fonts (Mempercepat Load) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  
+  <!-- Load Fonts: Roboto untuk UI, Merriweather untuk Isi Artikel -->
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+  <!-- Astro View Transitions (Animasi halus antar halaman) -->
+  <ClientRouter />
 </head>
 <body>
   <Header />
+  
   <main class="container">
     <slot />
   </main>
+  
   <Footer />
 </body>
 </html>

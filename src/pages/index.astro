@@ -4,22 +4,62 @@ import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import '../styles/global.css';
 
-const artikel = (await getCollection('berita')).sort(
+// 1. Ambil semua artikel dan urutkan dari yang terbaru
+const semuaArtikel = (await getCollection('berita')).sort(
   (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
 );
 
-const hero = artikel[0];
-const sidebar = artikel.slice(1);
-const gambarDefault = "https://picsum.photos/seed/cangkrukan-default/1200/630";
+// 2. Logika pembagian layout ala Tempo
+const hero = semuaArtikel[0]; // 1 Berita Utama (Hero)
+const sideTerbaru = semuaArtikel.slice(1, 6); // 5 Berita untuk Sidebar Kanan
+const beritaGrid = semuaArtikel.slice(6); // Sisa berita untuk grid bawah
 
-const formatTanggal = (date: Date) => {
-  return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
-};
+const gambarDefault = "https://picsum.photos/seed/cangkrukan-default/1200/630";
+const formatTanggal = (date: Date) => new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
 
 const title = "Cangkrukan | Suara Mahasiswa, Sejarah, dan Budaya";
-const description = "Ruang literasi digital mahasiswa Indonesia. Mengangkat narasi sejarah, budaya, opini, dan literasi dari seluruh penjuru Nusantara.";
-const image = "https://picsum.photos/seed/cangkrukan-og/1200/630";
+const description = "Ruang literasi digital mahasiswa Indonesia. Menyajikan berita terkini seputar sejarah, budaya, opini, dan literasi daerah secara mendalam.";
 const url = "https://cangkrukan.id/";
+const imageSeo = hero?.data.image || gambarDefault;
+
+// Schema Markup JSON-LD (SEO Ekstrem untuk Beranda)
+const schemaData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://cangkrukan.id/#website",
+      "url": "https://cangkrukan.id/",
+      "name": "Cangkrukan",
+      "description": description,
+      "publisher": { "@id": "https://cangkrukan.id/#organization" },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://cangkrukan.id/cari?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      },
+      "inLanguage": "id-ID"
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://cangkrukan.id/#organization",
+      "name": "Cangkrukan",
+      "url": "https://cangkrukan.id/",
+      "logo": { "@type": "ImageObject", "url": "https://cangkrukan.id/logo.png", "width": 600, "height": 60 }
+    },
+    {
+      "@type": "CollectionPage",
+      "@id": "https://cangkrukan.id/#webpage",
+      "url": "https://cangkrukan.id/",
+      "name": title,
+      "description": description,
+      "isPartOf": { "@id": "https://cangkrukan.id/#website" },
+      "about": { "@id": "https://cangkrukan.id/#organization" },
+      "primaryImageOfPage": { "@type": "ImageObject", "url": imageSeo },
+      "inLanguage": "id-ID"
+    }
+  ]
+};
 ---
 <!DOCTYPE html>
 <html lang="id">
@@ -30,60 +70,431 @@ const url = "https://cangkrukan.id/";
   <meta name="description" content={description} />
   <link rel="canonical" href={url} />
   
+  <!-- SEO Meta Tags -->
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="author" content="Cangkrukan" />
+  <meta name="theme-color" content="#AD120A" />
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:locale" content="id_ID" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content={url} />
+  <meta property="og:site_name" content="Cangkrukan" />
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
-  <meta property="og:image" content={image} />
-
+  <meta property="og:image" content={imageSeo} />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  
+  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={title} />
   <meta name="twitter:description" content={description} />
-  <meta name="twitter:image" content={image} />
+  <meta name="twitter:image" content={imageSeo} />
   
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Schema JSON-LD -->
+  <script type="application/ld+json" set:html={JSON.stringify(schemaData)} />
+
+  <style>
+    /* ==== RESET & BASE ==== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #ffffff;
+      color: #111111;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+    
+    a {
+      text-decoration: none;
+      color: inherit;
+      transition: color 0.2s ease;
+    }
+    
+    img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      background-color: #f0f0f0;
+    }
+
+    /* ==== CONTAINER & GRID ==== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px 16px;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 32px;
+      margin-top: 24px;
+    }
+
+    /* ==== WARNA AKSEN TEMPO ==== */
+    .text-merah {
+      color: #AD120A;
+    }
+    
+    .bg-merah {
+      background-color: #AD120A;
+      color: #fff;
+    }
+
+    /* ==== HERO CARD (BERITA UTAMA) ==== */
+    .hero-card {
+      position: relative;
+      display: block;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 30px;
+    }
+    
+    .hero-card img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+    
+    .hero-card:hover img {
+      transform: scale(1.02);
+    }
+    
+    .hero-content {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 30px 20px 20px;
+      background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 100%);
+      color: #fff;
+    }
+    
+    .hero-cat {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background-color: #AD120A;
+      padding: 4px 8px;
+      margin-bottom: 12px;
+      border-radius: 2px;
+    }
+    
+    .hero-title {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.5px;
+      word-wrap: break-word;
+    }
+
+    /* ==== SECTION TITLE ==== */
+    .section-title {
+      font-size: 20px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 3px solid #AD120A;
+      padding-bottom: 8px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* ==== GRID BERITA ==== */
+    .news-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px 20px;
+    }
+    
+    .news-card {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    
+    .news-card img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      border-radius: 4px;
+      margin-bottom: 12px;
+      transition: opacity 0.2s;
+    }
+    
+    .news-card:hover img {
+      opacity: 0.85;
+    }
+    
+    .news-cat {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #AD120A;
+      margin-bottom: 6px;
+      display: block;
+    }
+    
+    .news-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 10px;
+      color: #111;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    
+    .news-card:hover .news-title {
+      color: #AD120A;
+    }
+    
+    .news-meta {
+      font-size: 11px;
+      color: #777;
+      margin-top: auto;
+    }
+
+    /* ==== SIDEBAR ==== */
+    .sidebar-wrapper {
+      position: sticky;
+      top: 20px;
+    }
+    
+    .sidebar-title {
+      font-size: 16px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 3px solid #AD120A;
+      padding-bottom: 8px;
+      margin-bottom: 20px;
+      display: inline-block;
+      color: #111;
+    }
+    
+    .sidebar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .sidebar-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .sidebar-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    
+    .sidebar-item img {
+      width: 80px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    
+    .sidebar-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .sidebar-item-title {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 6px;
+      color: #111;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    
+    .sidebar-item:hover .sidebar-item-title {
+      color: #AD120A;
+    }
+    
+    .sidebar-meta {
+      font-size: 10px;
+      color: #777;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* ==== WIDGET IKLAN ==== */
+    .widget-ad {
+      background: #f9faf9;
+      border: 1px dashed #ccc;
+      height: 250px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      border-radius: 4px;
+      margin-bottom: 32px;
+    }
+
+    /* ==== RESPONSIVE ==== */
+    @media (max-width: 1024px) {
+      .news-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+      
+      .sidebar-wrapper {
+        position: static;
+      }
+      
+      .hero-title {
+        font-size: 24px;
+      }
+    }
+    
+    @media (max-width: 600px) {
+      .news-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .hero-title {
+        font-size: 20px;
+      }
+      
+      .hero-content {
+        padding: 20px 16px 16px;
+      }
+    }
+  </style>
 </head>
 <body>
   <Header />
+  
   <main class="container">
+    <!-- Garis Pemisah Minimalis -->
+    <div style="border-top: 1px solid #ddd; padding-top: 20px;"></div>
+
     <div class="main-grid">
       
-      <div>
+      <!-- ==================== KOLOM KIRI: ARTIKEL ==================== -->
+      <section aria-label="Berita Utama">
         {hero && (
-          <a href={`/berita/${hero.id}`}>
-            <article class="hero-card">
-              <img src={hero.data.image || gambarDefault} alt={hero.data.title} />
-              <div class="hero-content">
-                <span class="hero-cat">{hero.data.category} • {hero.data.daerah}</span>
-                <h1 class="hero-title">{hero.data.title}</h1>
-                <p class="hero-desc">{hero.data.description}</p>
-              </div>
-            </article>
+          <a href={`/berita/${hero.id}`} class="hero-card" aria-label={`Baca selengkapnya: ${hero.data.title}`}>
+            <img 
+              src={hero.data.image || gambarDefault} 
+              alt={`Ilustrasi artikel ${hero.data.title}`} 
+              width="1200" 
+              height="675"
+              fetchpriority="high"
+              loading="eager"
+            />
+            <div class="hero-content">
+              <span class="hero-cat">{hero.data.category}</span>
+              <h1 class="hero-title">{hero.data.title}</h1>
+            </div>
           </a>
         )}
-      </div>
 
-      <aside>
-        <div class="sidebar-header">
-          <h3 class="sidebar-title">Terbaru di Cangkrukan</h3>
-          <span class="sidebar-badge">SUARA MAHASISWA</span>
+        {beritaGrid.length > 0 && (
+          <div style="margin-top: 40px;">
+            <div class="section-title">
+              <span>Berita Terkini</span>
+              <span style="font-size: 12px; font-weight: 600; color: #777; text-transform: none;">Menampilkan {beritaGrid.length} artikel</span>
+            </div>
+            
+            <div class="news-grid" aria-label="Daftar Berita Terbaru">
+              {beritaGrid.map((post) => (
+                <a href={`/berita/${post.id}`} class="news-card" aria-label={`Baca artikel: ${post.data.title}`}>
+                  <img 
+                    src={post.data.image || gambarDefault} 
+                    alt={`Thumbnail artikel ${post.data.title}`} 
+                    width="400" 
+                    height="225"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <span class="news-cat">{post.data.category} • {post.data.daerah}</span>
+                  <h3 class="news-title">{post.data.title}</h3>
+                  <div class="news-meta">{post.data.author} &middot; {formatTanggal(post.data.date)}</div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <!-- ==================== KOLOM KANAN: SIDEBAR ==================== -->
+      <aside class="sidebar-wrapper" aria-label="Sidebar Berita Terbaru">
+        
+        <div class="widget-ad">
+          ADVERTISEMENT
         </div>
-        <div class="sidebar-list">
-          {sidebar.map((post) => (
-            <a href={`/berita/${post.id}`} class="sidebar-card">
-              <img src={post.data.image || gambarDefault} alt={post.data.title} />
-              <div class="sidebar-info">
-                <span class="sidebar-cat">{post.data.category} • {post.data.daerah}</span>
-                <h4 class="sidebar-title-small">{post.data.title}</h4>
-                <span class="sidebar-meta">{post.data.author} &middot; {formatTanggal(post.data.date)}</span>
-              </div>
-            </a>
-          ))}
+
+        <div>
+          <div class="sidebar-title">Terbaru</div>
+          <div class="sidebar-list">
+            {sideTerbaru.map((post) => (
+              <a href={`/berita/${post.id}`} class="sidebar-item" aria-label={`Baca artikel terbaru: ${post.data.title}`}>
+                <img 
+                  src={post.data.image || gambarDefault} 
+                  alt={`Thumbnail kecil artikel ${post.data.title}`} 
+                  width="160" 
+                  height="120"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="sidebar-info">
+                  <h4 class="sidebar-item-title">{post.data.title}</h4>
+                  <span class="sidebar-meta">{post.data.category} &middot; {formatTanggal(post.data.date)}</span>
+                </div>
+              </a>
+            ))}
+          </div>
         </div>
+
       </aside>
 
     </div>
   </main>
+  
   <Footer />
 </body>
 </html>

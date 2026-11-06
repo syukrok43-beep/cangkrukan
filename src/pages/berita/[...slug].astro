@@ -8,10 +8,12 @@ export async function getStaticPaths() {
   const artikel = await getCollection('berita');
   const sorted = [...artikel].sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
-  return sorted.map((post) => {
+  return sorted.map((post, index) => {
     const others = sorted.filter((p) => p.id !== post.id);
     
-    // Filter Artikel Terkait
+    // ==========================================
+    // LOGIKA ARTIKEL TERKAIT (3 ITEM)
+    // ==========================================
     const sameCategory = others.filter((p) => p.data.category === post.data.category);
     const sameDaerah = others.filter((p) => p.data.daerah === post.data.daerah && p.data.category !== post.data.category);
     const latest = others.filter((p) => p.data.category !== post.data.category && p.data.daerah !== post.data.daerah);
@@ -25,18 +27,24 @@ export async function getStaticPaths() {
       relatedPosts.push(p);
     }
 
-    // Navigasi Next/Prev
+    // ==========================================
+    // LOGIKA NAVIGASI SEBELUMNYA / BERIKUTNYA
+    // ==========================================
     const prevPost = sorted.find((p) => p.data.date.valueOf() < post.data.date.valueOf()) || null;
     const nextPost = [...sorted].reverse().find((p) => p.data.date.valueOf() > post.data.date.valueOf()) || null;
 
-    // Logika Baca Juga (Tengah Artikel)
+    // ==========================================
+    // LOGIKA BACA JUGA (TENGAH ARTIKEL)
+    // ==========================================
     const bacaJuga =
       sameCategory.find((p) => p.id !== post.id) ||
       sameDaerah.find((p) => p.id !== post.id) ||
       latest.find((p) => p.id !== post.id) ||
       null;
 
-    // Sidebar: Ambil 5 artikel terbaru (selain artikel yang sedang dibaca)
+    // ==========================================
+    // LOGIKA SIDEBAR (5 ARTIKEL TERBARU)
+    // ==========================================
     const sidebarPosts = others.slice(0, 5);
 
     return {
@@ -49,9 +57,13 @@ export async function getStaticPaths() {
 const { post, relatedPosts, prevPost, nextPost, bacaJuga, sidebarPosts } = Astro.props;
 const { Content } = await render(post);
 
+// ==========================================
+// UTILITAS FORMAT TANGGAL & SLUG
+// ==========================================
 const formatTanggal = (date: Date) => new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
 const formatTanggalPendek = (date: Date) => new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 const formatTanggalISO = (date: Date) => date.toISOString();
+
 const gambarDefault = 'https://picsum.photos/seed/cangkrukan-default/1200/630';
 
 const title = `${post.data.title} | Cangkrukan`;
@@ -62,11 +74,15 @@ const authorSlug = post.data.author.toLowerCase().replace(/\s+/g, '-');
 const categorySlug = post.data.category.toLowerCase().replace(/\s+/g, '-');
 const daerahSlug = post.data.daerah.toLowerCase().replace(/\s+/g, '-');
 
-// Hitung Waktu Baca
+// ==========================================
+// HITUNG WAKTU BACA
+// ==========================================
 const wordCount = (post.body || '').trim().split(/\s+/).length;
 const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
-// Schema JSON-LD SEO
+// ==========================================
+// SCHEMA JSON-LD (SEO EKSTREM)
+// ==========================================
 const schemaData = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -131,11 +147,13 @@ const schemaData = {
   <meta name="description" content={description} />
   <link rel="canonical" href={url} />
   
+  <!-- SEO Meta Tags -->
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
   <meta name="author" content={post.data.author} />
   <meta name="keywords" content={`${post.data.category}, ${post.data.daerah}, ${post.data.author}, cangkrukan, berita daerah`} />
-  <meta name="theme-color" content="#1E3F20" />
+  <meta name="theme-color" content="#d61d23" />
   
+  <!-- Open Graph / Facebook -->
   <meta property="og:locale" content="id_ID" />
   <meta property="og:type" content="article" />
   <meta property="og:url" content={url} />
@@ -153,6 +171,7 @@ const schemaData = {
   <meta property="article:tag" content={post.data.category} />
   <meta property="article:tag" content={post.data.daerah} />
   
+  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={title} />
   <meta name="twitter:description" content={description} />
@@ -163,6 +182,7 @@ const schemaData = {
   <meta name="twitter:label2" content="Waktu baca" />
   <meta name="twitter:data2" content={`${readingTime} menit`} />
   
+  <!-- Icons & Fonts -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   
@@ -173,7 +193,7 @@ const schemaData = {
   <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
   <link rel="dns-prefetch" href="https://picsum.photos" />
   
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet" />
   
   <script type="application/ld+json" set:html={JSON.stringify(schemaData)} />
 </head>
@@ -347,7 +367,7 @@ const schemaData = {
 
   <Footer />
 
-  <!-- SCRIPT BACA JUGA TENGAH ARTIKEL -->
+  <!-- SCRIPT BACA JUGA TENGAH ARTIKEL (TANPA HIJAU) -->
   {bacaJuga && (
     <script is:inline define:vars={{ bacaUrl: `/berita/${bacaJuga.id}`, bacaTitle: bacaJuga.data.title }}>
       document.addEventListener('DOMContentLoaded', () => {
@@ -368,38 +388,46 @@ const schemaData = {
     </script>
   )}
 
-  <!-- CSS TERPUSAT -->
+  <!-- CSS TERPUSAT (TEMA TEMPO - MERAH/HITAM) -->
   <style>
-    /* ==== RESET & BASE ==== */
+    /* =========================================
+       1. RESET & BASE STYLES
+       ========================================= */
     .article-body {
       background: #ffffff;
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      color: #0c0c0c;
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #212121;
       margin: 0;
       padding: 0;
       width: 100%;
       max-width: 100vw;
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     *, *::before, *::after {
       box-sizing: border-box;
     }
 
-    /* ==== MAIN GRID (ALAYOUT MOJOK) ==== */
+    a { text-decoration: none; color: inherit; }
+    img { display: block; max-width: 100%; height: auto; }
+
+    /* =========================================
+       2. MAIN LAYOUT GRID (2 KOLOM)
+       ========================================= */
     .main-container {
-      max-width: 1200px;
+      max-width: 1140px;
       margin: 0 auto;
       padding: 40px 20px 80px;
       display: grid;
       grid-template-columns: 1fr 320px;
-      gap: 50px;
+      gap: 40px;
       align-items: start;
     }
 
     .article-column {
-      min-width: 0; /* Mencegah flex/grid meluber */
+      min-width: 0;
     }
 
     .sidebar-column {
@@ -407,10 +435,12 @@ const schemaData = {
       top: 40px;
     }
 
-    /* ==== HEADER ARTIKEL ==== */
+    /* =========================================
+       3. HEADER ARTIKEL & BREADCRUMB
+       ========================================= */
     .breadcrumb {
-      font-size: 12px;
-      color: #888;
+      font-size: 13px;
+      color: #757575;
       margin-bottom: 20px;
       display: flex;
       flex-wrap: wrap;
@@ -418,27 +448,30 @@ const schemaData = {
       gap: 6px;
     }
     .breadcrumb a {
-      color: #1E3F20;
-      text-decoration: none;
+      color: #212121;
       font-weight: 700;
+      transition: color 0.2s;
+    }
+    .breadcrumb a:hover {
+      color: #d61d23;
     }
     .breadcrumb .sep {
-      color: #ccc;
+      color: #bdbdbd;
     }
 
     .article-title {
-      font-size: 40px;
+      font-size: 38px;
       line-height: 1.25;
       color: #111;
       margin: 0 0 16px 0;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: -0.5px;
       word-wrap: break-word;
     }
 
     .article-meta {
       font-size: 13.5px;
-      color: #666;
+      color: #757575;
       margin-bottom: 24px;
       display: flex;
       flex-wrap: wrap;
@@ -446,27 +479,30 @@ const schemaData = {
       gap: 8px;
     }
     .article-meta strong {
-      color: #1E3F20;
+      color: #212121;
       font-weight: 700;
     }
     .article-meta .dot {
-      color: #ccc;
+      color: #bdbdbd;
     }
 
+    /* =========================================
+       4. TOMBOL SHARE
+       ========================================= */
     .share-row {
       display: flex;
       align-items: center;
       gap: 10px;
       padding: 16px 0;
-      border-top: 1px solid #ececed;
-      border-bottom: 1px solid #ececed;
+      border-top: 1px solid #eeeeee;
+      border-bottom: 1px solid #eeeeee;
       margin-bottom: 30px;
       flex-wrap: wrap;
     }
     .share-label {
       font-size: 11px;
       font-weight: 800;
-      color: #666;
+      color: #212121;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
@@ -477,16 +513,18 @@ const schemaData = {
       align-items: center;
       justify-content: center;
       border-radius: 50%;
-      background: #f4f6f4;
-      color: #1E3F20;
-      text-decoration: none;
+      background: #f5f5f5;
+      color: #212121;
       transition: background 0.2s, color 0.2s;
     }
     .share-btn:hover {
-      background: #1E3F20;
-      color: #fff;
+      background: #d61d23;
+      color: #ffffff;
     }
 
+    /* =========================================
+       5. GAMBAR UTAMA (HERO)
+       ========================================= */
     .article-figure {
       margin: 0 0 30px 0;
     }
@@ -495,43 +533,86 @@ const schemaData = {
       height: auto;
       aspect-ratio: 16 / 9;
       object-fit: cover;
-      border-radius: 8px;
+      border-radius: 4px;
       display: block;
     }
     .article-figure figcaption {
       font-size: 12px;
-      color: #888;
+      color: #757575;
       margin-top: 8px;
-      font-style: italic;
+      font-family: 'Roboto', sans-serif;
     }
 
-    /* ==== KONTEN MARKDOWN ==== */
+    /* =========================================
+       6. KONTEN MARKDOWN (TYPOGRAPHY)
+       ========================================= */
     .article-content {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 19px;
-      line-height: 1.7;
-      color: #0c0c0c;
+      font-family: 'Merriweather', Georgia, serif;
+      font-size: 18px;
+      line-height: 1.75;
+      color: #212121;
       overflow-wrap: break-word;
     }
-    .article-content :global(p) { margin-bottom: 24px; }
-    .article-content :global(h2) { font-size: 26px; font-weight: 700; margin: 40px 0 16px 0; line-height: 1.3; }
-    .article-content :global(h3) { font-size: 22px; font-weight: 700; margin: 32px 0 14px 0; line-height: 1.3; }
-    .article-content :global(blockquote) { margin: 30px 0; padding: 8px 0 8px 20px; border-left: 4px solid #1E3F20; font-style: italic; font-size: 20px; }
-    .article-content :global(a) { color: #246204; text-decoration: underline; font-weight: 600; word-break: break-word; }
-    .article-content :global(img) { max-width: 100%; height: auto; border-radius: 6px; margin: 20px 0; }
-    .article-content :global(ul), .article-content :global(ol) { margin: 0 0 24px 20px; padding: 0; }
-    .article-content :global(li) { margin-bottom: 8px; }
+    .article-content :global(p) { 
+      margin-bottom: 24px; 
+    }
+    .article-content :global(h2) { 
+      font-family: 'Roboto', sans-serif; 
+      font-size: 24px; 
+      font-weight: 900; 
+      margin: 40px 0 16px 0; 
+      line-height: 1.3; 
+      color: #111;
+    }
+    .article-content :global(h3) { 
+      font-family: 'Roboto', sans-serif; 
+      font-size: 20px; 
+      font-weight: 800; 
+      margin: 32px 0 14px 0; 
+      line-height: 1.3; 
+      color: #111;
+    }
+    .article-content :global(blockquote) { 
+      margin: 30px 0; 
+      padding: 10px 0 10px 20px; 
+      border-left: 4px solid #d61d23; 
+      font-style: italic; 
+      font-size: 20px; 
+      color: #444; 
+    }
+    .article-content :global(a) { 
+      color: #d61d23; 
+      text-decoration: underline; 
+      font-weight: 600; 
+      word-break: break-word; 
+    }
+    .article-content :global(img) { 
+      max-width: 100%; 
+      height: auto; 
+      border-radius: 4px; 
+      margin: 20px 0; 
+    }
+    .article-content :global(ul), 
+    .article-content :global(ol) { 
+      margin: 0 0 24px 20px; 
+      padding: 0; 
+    }
+    .article-content :global(li) { 
+      margin-bottom: 8px; 
+    }
 
-    /* STYLING BACA JUGA (Disisipkan via JS) */
+    /* =========================================
+       7. STYLING BACA JUGA (MERAH TEMPO)
+       ========================================= */
     .article-content :global(.baca-juga-box) {
       display: block;
       width: 100%;
       margin: 32px 0;
       padding: 16px 20px;
-      background: #f4f6f4;
-      border-left: 4px solid #1E3F20;
+      background: #f9f9f9;
+      border-left: 4px solid #d61d23;
       border-radius: 4px;
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: 'Roboto', sans-serif;
       font-size: 15px;
       line-height: 1.5;
       box-sizing: border-box;
@@ -544,34 +625,39 @@ const schemaData = {
       text-transform: uppercase;
       letter-spacing: 1.2px;
       color: #fff;
-      background: #1E3F20;
+      background: #d61d23;
       padding: 4px 10px;
-      border-radius: 999px;
+      border-radius: 2px;
       margin-right: 12px;
       vertical-align: middle;
     }
     .article-content :global(.baca-juga-link) {
-      color: #1E3F20;
+      color: #212121;
       text-decoration: underline;
       text-underline-offset: 3px;
       font-weight: 700;
       vertical-align: middle;
       word-break: break-word;
     }
+    .article-content :global(.baca-juga-link:hover) {
+      color: #d61d23;
+    }
 
-    /* ==== REFERENSI & AUTHOR BOX ==== */
+    /* =========================================
+       8. KOTAK REFERENSI
+       ========================================= */
     .referensi {
       margin-top: 40px;
       padding: 20px;
-      background: #f4f6f4;
-      border-left: 4px solid #1E3F20;
+      background: #f5f5f5;
+      border-left: 4px solid #d61d23;
       border-radius: 4px;
     }
     .referensi h3 {
       font-size: 13px;
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: 'Roboto', sans-serif;
       text-transform: uppercase;
-      color: #1E3F20;
+      color: #d61d23;
       margin: 0 0 10px 0;
     }
     .referensi p {
@@ -580,27 +666,31 @@ const schemaData = {
       color: #555;
     }
 
+    /* =========================================
+       9. KOTAK BIO PENULIS
+       ========================================= */
     .author-box {
       display: flex;
       gap: 20px;
-      background: #f4f6f4;
+      background: #f5f5f5;
       padding: 24px;
-      border-radius: 8px;
+      border-radius: 4px;
       margin-top: 48px;
       align-items: center;
       flex-wrap: wrap;
+      border: 1px solid #eeeeee;
     }
     .author-avatar {
       width: 70px;
       height: 70px;
-      background: #1E3F20;
+      background: #212121;
       color: #fff;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 28px;
-      font-weight: bold;
+      font-weight: 900;
       flex-shrink: 0;
     }
     .author-info {
@@ -609,46 +699,48 @@ const schemaData = {
     }
     .author-info h3 {
       font-size: 18px;
-      color: #1E3F20;
+      color: #111;
       margin: 0 0 6px 0;
-      font-weight: 700;
+      font-weight: 800;
     }
     .author-info p {
       font-size: 14px;
       margin: 0 0 8px 0;
-      color: #444;
+      color: #555;
     }
     .author-link {
       font-size: 13px;
-      font-weight: 600;
-      color: #1E3F20;
+      font-weight: 700;
+      color: #d61d23;
       text-decoration: none;
-      border-bottom: 1px dashed #1E3F20;
+      border-bottom: 1px dashed #d61d23;
     }
 
-    /* ==== NAVIGASI NEXT/PREV ==== */
+    /* =========================================
+       10. NAVIGASI SEBELUMNYA / BERIKUTNYA
+       ========================================= */
     .article-nav {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 16px;
       margin-top: 40px;
       padding-top: 30px;
-      border-top: 1px solid #ececed;
+      border-top: 1px solid #eeeeee;
     }
     .article-nav-item {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
       padding: 16px;
-      background: #f9faf9;
-      border: 1px solid #ececed;
-      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid #eeeeee;
+      border-radius: 4px;
       text-decoration: none;
       color: inherit;
       transition: border-color 0.2s;
     }
     .article-nav-item:hover {
-      border-color: #1E3F20;
+      border-color: #d61d23;
     }
     .article-nav-item.next {
       text-align: right;
@@ -659,14 +751,15 @@ const schemaData = {
     .nav-label {
       font-size: 11px;
       font-weight: 800;
-      color: #1E3F20;
+      color: #d61d23;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     .nav-title {
-      font-family: 'Newsreader', Georgia, serif;
+      font-family: 'Roboto', sans-serif;
       font-size: 16px;
       font-weight: 700;
-      color: #111;
+      color: #212121;
       line-height: 1.35;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -674,60 +767,66 @@ const schemaData = {
       overflow: hidden;
     }
 
-    /* ==== TAG SECTION ==== */
+    /* =========================================
+       11. TAG SECTION
+       ========================================= */
     .tag-section {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       margin-top: 30px;
       padding-top: 20px;
-      border-top: 1px solid #ececed;
+      border-top: 1px solid #eeeeee;
     }
     .tag-item {
       font-size: 12.5px;
       font-weight: 600;
-      color: #1E3F20;
-      background: #f4f6f4;
+      color: #212121;
+      background: #f5f5f5;
       padding: 6px 14px;
-      border-radius: 999px;
+      border-radius: 4px;
       text-decoration: none;
-      border: 1px solid #e4ebe4;
+      border: 1px solid #eeeeee;
       transition: background 0.2s, color 0.2s;
     }
     .tag-item:hover {
-      background: #1E3F20;
-      color: #fff;
+      background: #d61d23;
+      color: #ffffff;
+      border-color: #d61d23;
     }
 
-    /* ==== SIDEBAR (KANAN) ==== */
+    /* =========================================
+       12. SIDEBAR (KANAN)
+       ========================================= */
     .widget-ad {
       background: #f9faf9;
-      border: 1px dashed #ccc;
+      border: 1px dashed #cccccc;
       height: 250px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #999;
+      color: #999999;
       font-size: 12px;
       font-weight: 700;
       letter-spacing: 2px;
-      border-radius: 8px;
+      border-radius: 4px;
       margin-bottom: 30px;
     }
 
     .widget-latest {
-      background: #fff;
-      border: 1px solid #ececed;
-      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid #eeeeee;
+      border-radius: 4px;
       padding: 24px;
     }
     .widget-title {
       font-size: 18px;
-      font-weight: 800;
-      color: #111;
+      font-weight: 900;
+      color: #111111;
       margin: 0 0 16px 0;
       padding-bottom: 16px;
-      border-bottom: 2px solid #1E3F20;
+      border-bottom: 2px solid #d61d23;
+      text-transform: uppercase;
     }
     .latest-list {
       display: flex;
@@ -745,7 +844,7 @@ const schemaData = {
       width: 80px;
       height: 80px;
       object-fit: cover;
-      border-radius: 6px;
+      border-radius: 4px;
       flex-shrink: 0;
     }
     .latest-info {
@@ -762,14 +861,19 @@ const schemaData = {
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+    .latest-item:hover .latest-info h4 {
+      color: #d61d23;
+    }
     .latest-info span {
       font-size: 11px;
-      color: #888;
+      color: #888888;
     }
 
-    /* ==== ARTIKEL TERKAIT (BAWAH FULL WIDTH) ==== */
+    /* =========================================
+       13. SECTION ARTIKEL TERKAIT (BAWAH)
+       ========================================= */
     .related-section {
-      max-width: 1200px;
+      max-width: 1140px;
       margin: 0 auto;
       padding: 0 20px 60px;
     }
@@ -780,21 +884,21 @@ const schemaData = {
       flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 24px;
-      border-top: 2px solid #ececed;
+      border-top: 2px solid #eeeeee;
       padding-top: 40px;
     }
     .related-header h2 {
       font-size: 24px;
-      font-weight: 800;
-      color: #111;
+      font-weight: 900;
+      color: #111111;
       margin: 0;
+      text-transform: uppercase;
     }
     .related-header a {
       font-size: 13px;
-      font-weight: 600;
-      color: #1E3F20;
+      font-weight: 700;
+      color: #d61d23;
       text-decoration: none;
-      border-bottom: 1px dashed #1E3F20;
     }
     .related-grid {
       display: grid;
@@ -806,14 +910,13 @@ const schemaData = {
       flex-direction: column;
       text-decoration: none;
       color: inherit;
-      border: 1px solid #ececed;
-      border-radius: 8px;
+      border: 1px solid #eeeeee;
+      border-radius: 4px;
       overflow: hidden;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: border-color 0.2s;
     }
     .related-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      border-color: #d61d23;
     }
     .related-thumb img {
       width: 100%;
@@ -829,10 +932,10 @@ const schemaData = {
       font-size: 10px;
       font-weight: 800;
       text-transform: uppercase;
-      color: #fff;
-      background: #1E3F20;
+      color: #ffffff;
+      background: #d61d23;
       padding: 4px 10px;
-      border-radius: 4px;
+      border-radius: 2px;
       display: inline-block;
       margin-bottom: 10px;
     }
@@ -846,30 +949,34 @@ const schemaData = {
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+    .related-card:hover .related-body h3 {
+      color: #d61d23;
+    }
     .related-meta {
       font-size: 12px;
-      color: #888;
+      color: #888888;
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
-    /* ==== RESPONSIVE (MOBILE & TABLET) ==== */
-    @media (max-width: 960px) {
+    /* =========================================
+       14. RESPONSIVE (MOBILE & TABLET)
+       ========================================= */
+    @media (max-width: 1024px) {
       .main-container {
-        grid-template-columns: 1fr; /* Ubah jadi 1 kolom */
-        padding-top: 20px;
+        grid-template-columns: 1fr;
         gap: 40px;
       }
       .sidebar-column {
-        position: static; /* Hilangkan sticky di HP */
+        position: static;
       }
       .related-grid {
         grid-template-columns: 1fr 1fr;
       }
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
       .article-title {
         font-size: 30px;
       }
@@ -898,10 +1005,30 @@ const schemaData = {
       }
     }
 
+    @media (max-width: 576px) {
+      .main-container {
+        padding: 20px 16px 60px;
+      }
+      .article-title {
+        font-size: 26px;
+      }
+      .share-row {
+        gap: 6px;
+      }
+      .share-btn {
+        width: 32px;
+        height: 32px;
+      }
+    }
+
+    /* =========================================
+       15. AKSESIBILITAS (REDUCED MOTION)
+       ========================================= */
     @media (prefers-reduced-motion: reduce) {
       * {
         transition: none !important;
         animation: none !important;
+        scroll-behavior: auto !important;
       }
     }
   </style>
